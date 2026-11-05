@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tableau de bord</title>
+<style>
+  :root {
+    --ink: #050505;
+    --ivory: #ece6d6;
+    --muted: #8a8272;
+    --rule: #221e17;
+    --off: #1c1812;
+    --amber: #ff9a2e;
+    --red: #ff3b2a;
+    --green: #3ddc84;
+    --blue: #3d8bff;
+    --violet: #c98bff;
+  }
+  html, body { margin: 0; height: 100%; background: var(--ink); overflow: hidden; cursor: none; user-select: none; -webkit-user-select: none; }
+  svg { display: block; width: 100vw; height: 100vh; }
+  text { font-family: "Bahnschrift", "DIN Alternate", "Segoe UI", system-ui, sans-serif; font-feature-settings: "tnum" 1; fill: var(--ivory); }
+  .lbl  { font-size: 12px; fill: var(--muted); letter-spacing: .03em; }
+  .name { font-size: 19px; font-weight: 700; }
+  .big  { font-weight: 700; }
+  .unit { font-size: 15px; font-weight: 400; fill: var(--muted); }
+  .num  { font-size: 26px; font-weight: 500; }
+  .sub  { font-size: 13px; fill: var(--muted); }
+  @keyframes pulse { 0%, 100% { opacity: .35 } 50% { opacity: 1 } }
+  #wait .dot { animation: pulse 1.6s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { #wait .dot { animation: none; } }
+</style>
+</head>
+<body>
+<svg id="d" viewBox="0 0 1024 600" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="back" cx="512" cy="324" r="520" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0f0d09"/><stop offset="1" stop-color="#030303"/>
+    </radialGradient>
+    <radialGradient id="face" cx="512" cy="324" r="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0a0908"/><stop offset=".72" stop-color="#0b0907"/><stop offset="1" stop-color="#17110a"/>
+    </radialGradient>
+    <linearGradient id="bezel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a4030"/><stop offset=".5" stop-color="#1b1710"/><stop offset="1" stop-color="#383024"/>
+    </linearGradient>
+    <linearGradient id="needle" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff4a1c"/><stop offset="1" stop-color="#ffb347"/>
+    </linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowS" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="1.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="600" fill="url(#back)"/>
+
+  <!-- ===== Voyants de clignotants ===== -->
+  <polygon id="arrL" points="70,34 112,10 112,25 160,25 160,43 112,43 112,58" fill="#15231b"/>
+  <polygon id="arrR" points="954,34 912,10 912,25 864,25 864,43 912,43 912,58" fill="#15231b"/>
+
+  <!-- ===== Shift lights ===== -->
+  <g id="leds"></g>
+  <text id="status" x="512" y="52" text-anchor="middle" font-size="12" style="fill:var(--amber);letter-spacing:.12em"></text>
+
+  <!-- ===== Compteur ===== -->
+  <circle cx="512" cy="324" r="260" fill="none" stroke="url(#bezel)" stroke-width="5"/>
+  <circle cx="512" cy="324" r="257" fill="url(#face)"/>
+  <g id="ring"></g>
+  <g id="tach"></g>
+  <g id="needleG" transform="translate(512 324) rotate(135)">
+    <polygon points="146,-4.5 252,-1.4 252,1.4 146,4.5" fill="url(#needle)" filter="url(#glow)"/>
+  </g>
+
+  <!-- vitesse -->
+  <text id="spd" x="512" y="346" text-anchor="middle" font-size="120" class="big">0</text>
+  <text x="512" y="378" text-anchor="middle" font-size="17" style="fill:var(--muted);letter-spacing:.2em">km/h</text>
+
+  <!-- rapport + pédales -->
+  <text id="gear" x="512" y="492" text-anchor="middle" font-size="98" class="big">N</text>
+  <rect x="438" y="424" width="9" height="84" rx="2" fill="var(--off)"/>
+  <rect id="brkBar" x="438" y="508" width="9" height="0" rx="2" fill="var(--red)"/>
+  <rect x="577" y="424" width="9" height="84" rx="2" fill="var(--off)"/>
+  <rect id="gasBar" x="577" y="508" width="9" height="0" rx="2" fill="var(--green)"/>
+  <text x="442.5" y="526" text-anchor="middle" class="lbl" font-size="10">frein</text>
+  <text x="581.5" y="526" text-anchor="middle" class="lbl" font-size="10">gaz</text>
+
+  <!-- ===== Colonne gauche ===== -->
+  <text id="car" x="30" y="112" class="name">Assetto Corsa Evo</text>
+  <text id="carSub" x="30" y="131" class="lbl"></text>
+  <line x1="30" x2="222" y1="148" y2="148" stroke="var(--rule)"/>
+
+  <text x="30" y="174" class="lbl">Carburant</text>
+  <text x="30" y="218" font-size="44" class="big"><tspan id="fuelN">--</tspan><tspan class="unit" dx="6">L</tspan></text>
+  <g id="fuelSegs"></g>
+  <text id="laps" x="30" y="264" class="sub"></text>
+  <line x1="30" x2="222" y1="282" y2="282" stroke="var(--rule)"/>
+
+  <text x="30" y="306" class="lbl">Eau</text>
+  <text x="30" y="340" font-size="32" class="big"><tspan id="waterN">--</tspan><tspan class="unit" dx="4">°C</tspan></text>
+  <rect x="30" y="350" width="192" height="5" rx="2.5" fill="var(--off)"/>
+  <rect id="waterBar" x="30" y="350" width="0" height="5" rx="2.5" fill="var(--amber)"/>
+
+  <text x="30" y="382" class="lbl">Huile</text>
+  <text x="30" y="416" font-size="32" class="big"><tspan id="oilN">--</tspan><tspan class="unit" dx="4">°C</tspan></text>
+  <rect x="30" y="426" width="192" height="5" rx="2.5" fill="var(--off)"/>
+  <rect id="oilBar" x="30" y="426" width="0" height="5" rx="2.5" fill="var(--amber)"/>
+
+  <line x1="30" x2="222" y1="450" y2="450" stroke="var(--rule)"/>
+  <text x="30" y="472" class="lbl">Pression huile</text>
+  <text x="30" y="494" font-size="18" class="big"><tspan id="oilP">--</tspan><tspan class="unit" dx="4" font-size="12">bar</tspan></text>
+  <text x="130" y="472" class="lbl">Turbo</text>
+  <text x="130" y="494" font-size="18" class="big"><tspan id="boost">--</tspan><tspan class="unit" dx="4" font-size="12">bar</tspan></text>
+  <line x1="30" x2="222" y1="512" y2="512" stroke="var(--rule)"/>
+  <g id="tells"></g>
+
+  <!-- ===== Colonne droite ===== -->
+  <text id="track" x="802" y="112" class="name">--</text>
+  <text id="cfg" x="802" y="131" class="lbl"></text>
+  <line x1="802" x2="994" y1="148" y2="148" stroke="var(--rule)"/>
+
+  <text x="802" y="174" class="lbl">Tour en cours</text>
+  <text id="lapV" x="802" y="216" font-size="40" class="big">-:--.---</text>
+  <text id="delta" x="802" y="244" font-size="16" class="big"></text>
+  <line x1="802" x2="994" y1="262" y2="262" stroke="var(--rule)"/>
+
+  <text x="802" y="288" class="lbl">Meilleur</text>
+  <text id="bestV" x="802" y="320" font-size="28" class="big" style="fill:var(--violet)">-:--.---</text>
+  <text x="802" y="358" class="lbl">Dernier</text>
+  <text id="lastV" x="802" y="390" font-size="28" class="big">-:--.---</text>
+  <line x1="802" x2="994" y1="410" y2="410" stroke="var(--rule)"/>
+
+  <text x="802" y="434" class="lbl">Position</text>
+  <text id="posV" x="802" y="468" font-size="30" class="big">--</text>
+  <line x1="802" x2="994" y1="488" y2="488" stroke="var(--rule)"/>
+
+  <g id="chips"></g>
+
+  <!-- ===== En attente du jeu ===== -->
+  <g id="wait">
+    <rect width="1024" height="600" fill="#000" opacity=".95"/>
+    <circle class="dot" cx="512" cy="268" r="7" fill="var(--amber)"/>
+    <text x="512" y="320" text-anchor="middle" font-size="28" class="big">En attente d'Assetto Corsa Evo</text>
+    <text x="512" y="352" text-anchor="middle" font-size="16" class="sub">Lance une session de conduite pour afficher la télémétrie</text>
+  </g>
+</svg>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const NS = "http://www.w3.org/2000/svg";
+  const S = (tag, attrs, parent) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+
+  const CX = 512, CY = 324, A0 = 135, SW = 270;
+  const rad = d => d * Math.PI / 180;
+  const pt = (r, a) => [CX + r * Math.cos(rad(a)), CY + r * Math.sin(rad(a))];
+  const f2 = n => n.toFixed(2);
+  const arcD = (r, a0, a1) => {
+    const [x0, y0] = pt(r, a0), [x1, y1] = pt(r, a1);
+    return `M${f2(x0)} ${f2(y0)}A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${f2(x1)} ${f2(y1)}`;
+  };
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+
+  const C = { off: '#1c1812', amber: '#ff9a2e', red: '#ff3b2a', green: '#3ddc84', blue: '#3d8bff', ivory: '#ece6d6', dim: '#241f17' };
+
+  /* ---------- petits utilitaires de mise à jour (évitent les écritures inutiles) ---------- */
+  const cache = new Map();
+  const setT = (id, txt) => { if (cache.get(id) !== txt) { cache.set(id, txt); $(id).textContent = txt; } };
+  const setA = (id, attr, v) => { const k = id + '|' + attr; if (cache.get(k) !== v) { cache.set(k, v); $(id).setAttribute(attr, v); } };
+  const fit = (id, maxW, base) => {
+    const el = $(id); el.setAttribute('font-size', base);
+    const w = el.getComputedTextLength();
+    if (w > maxW) el.setAttribute('font-size', (base * maxW / w).toFixed(1));
+  };
+  const setTfit = (id, txt, maxW, base) => { if (cache.get(id) !== txt) { cache.set(id, txt); $(id).textContent = txt; fit(id, maxW, base); } };
+
+  /* ---------- compteur : graduations, chiffres, anneau lumineux ---------- */
+  let builtMax = 0;
+  const ring = [];
+  function buildTach(max) {
+    builtMax = max;
+    const g = $('tach'); g.textContent = '';
+    const rg = $('ring'); rg.textContent = ''; ring.length = 0;
+    const major = max <= 10000 ? 1000 : max <= 20000 ? 2000 : 5000;
+    const minor = major / 5;
+    const redFrom = max * 0.89;
+    for (let v = 0; v <= max + 0.1; v += minor) {
+      const isMajor = Math.abs(v / major - Math.round(v / major)) < 1e-6;
+      const a = A0 + SW * v / max;
+      const red = v >= redFrom - 1e-6;
+      const [x0, y0] = pt(250, a), [x1, y1] = pt(isMajor ? 229 : 240, a);
+      S('line', { x1: f2(x0), y1: f2(y0), x2: f2(x1), y2: f2(y1),
+        stroke: red ? C.red : (isMajor ? C.ivory : '#7b7466'), 'stroke-width': isMajor ? 3 : 1.5 }, g);
+      if (isMajor) {
+        const [tx, ty] = pt(203, a);
+        const t = S('text', { x: f2(tx), y: f2(ty), 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'num' }, g);
+        t.style.fill = red ? '#ff5a46' : C.ivory;
+        t.textContent = String(Math.round(v / 1000));
+      }
+    }
+    S('path', { d: arcD(254, A0 + SW * 0.89, A0 + SW), stroke: C.red, 'stroke-width': 4, fill: 'none' }, g);
+    const N = 54;
+    for (let i = 0; i < N; i++) {
+      const f = (i + 0.5) / N;
+      const el = S('path', { d: arcD(172, A0 + SW * i / N + 0.5, A0 + SW * (i + 1) / N - 0.5), fill: 'none', 'stroke-width': 8, stroke: C.off }, rg);
+      ring.push({ el, f, on: false, col: f < 0.89 ? C.amber : C.red });
+    }
+  }
+
+  /* ---------- shift lights : 27 LED, remplies des bords vers le centre ---------- */
+  const LED_N = 27, leds = [];
+  for (let i = 0; i < LED_N; i++) {
+    const level = Math.min(i, LED_N - 1 - i);          // 0 (bord) .. 13 (centre)
+    const col = level < 4 ? C.green : level < 9 ? C.amber : C.red;
+    const el = S('circle', { cx: 262 + i * (500 / (LED_N - 1)), cy: 27, r: 6.5, fill: '#17140f' }, $('leds'));
+    leds.push({ el, level, col, on: false });
+  }
+
+  /* ---------- carburant : 20 segments ---------- */
+  const fuelSegs = [];
+  for (let i = 0; i < 20; i++) {
+    fuelSegs.push({ el: S('rect', { x: 30 + i * 9.6, y: 228, width: 8.1, height: 11, rx: 1.5, fill: C.off }, $('fuelSegs')), on: -1 });
+  }
+
+  /* ---------- voyants (icônes) ---------- */
+  const tells = {};
+  function icon(kind, x, y) {
+    const g = S('g', { transform: `translate(${x} ${y}) scale(1.25)` }, $('tells'));
+    const st = { stroke: 'currentColor', fill: 'none', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
+    if (kind === 'low' || kind === 'high') {
+      S('path', { ...st, d: 'M-4 -10C8 -10 14 -5 14 0C14 5 8 10 -4 10Z' }, g);
+      const dy = kind === 'low' ? 3 : 0;
+      [-6, 0, 6].forEach(y0 => S('line', { ...st, x1: -8, y1: y0, x2: -19, y2: y0 + dy }, g));
+    } else if (kind === 'hb') {
+      S('circle', { ...st, r: 10 }, g);
+      S('path', { ...st, d: 'M-14 -8A15 15 0 0 0 -14 8M14 -8A15 15 0 0 1 14 8' }, g);
+      const t = S('text', { 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': 14, 'font-weight': 700, stroke: 'none' }, g);
+      t.style.fill = 'currentColor'; t.textContent = 'P';
+    } else if (kind === 'pit') {
+      S('rect', { ...st, x: -17, y: -10, width: 34, height: 20, rx: 4 }, g);
+      const t = S('text', { 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': 12, 'font-weight': 700, stroke: 'none' }, g);
+      t.style.fill = 'currentColor'; t.textContent = 'PIT';
+    }
+    g.style.color = C.dim;
+    tells[kind] = { g, on: false };
+  }
+  icon('low', 46, 548); icon('high', 98, 548); icon('hb', 150, 548); icon('pit', 202, 548);
+  function tell(kind, on, color) {
+    const t = tells[kind];
+    if (t.on === on) return;
+    t.on = on;
+    t.g.style.color = on ? color : C.dim;
+    if (on) t.g.setAttribute('filter', 'url(#glowS)'); else t.g.removeAttribute('filter');
+  }
+
+  /* ---------- pastilles d'aides à la conduite ---------- */
+  const chips = {};
+  [['tc', 'TC', 802], ['abs', 'ABS', 866], ['bb', 'Balance', 930]].forEach(([k, label, x]) => {
+    const g = S('g', {}, $('chips'));
+    const r = S('rect', { x, y: 504, width: 64 - 6, height: 50, rx: 6, fill: 'none', stroke: '#2a251c', 'stroke-width': 1.5 }, g);
+    const l = S('text', { x: x + 29, y: 522, 'text-anchor': 'middle', class: 'lbl', 'font-size': 11 }, g);
+    l.textContent = label;
+    const v = S('text', { x: x + 29, y: 545, 'text-anchor': 'middle', 'font-size': 20, class: 'big' }, g);
+    v.textContent = '--';
+    chips[k] = { r, v, on: null, txt: '' };
+  });
+  function chip(k, txt, active) {
+    const c = chips[k];
+    if (c.txt !== txt) { c.txt = txt; c.v.textContent = txt; }
+    if (c.on !== active) {
+      c.on = active;
+      c.r.setAttribute('stroke', active ? C.amber : '#2a251c');
+      c.r.setAttribute('fill', active ? '#3a2300' : 'none');
+      c.v.style.fill = active ? C.amber : C.ivory;
+    }
+  }
+
+  /* ---------- formats ---------- */
+  const fmt = ms => {
+    if (!(ms > 0) || ms >= 3600000) return '-:--.---';
+    const m = Math.floor(ms / 60000), s = Math.floor(ms % 60000 / 1000), r = Math.floor(ms % 1000);
+    return m + ':' + String(s).padStart(2, '0') + '.' + String(r).padStart(3, '0');
+  };
+  const num = (v, d = 0) => (v == null ? '--' : v.toFixed(d));
+
+  /* ---------- données : flux temps réel ou démo ---------- */
+  const params = new URLSearchParams(location.search);
+  const demo = params.has('demo');
+  const demoOffset = Number(params.get('demo')) || 0;
+  let tgt = { c: false }, lastMsg = 0;
+
+  function demoData(t) {
+    t += demoOffset;
+    const ratios = [0, 7.2, 11.4, 15.8, 20.3, 25, 29.5, 34];          // km/h pour 1000 tr/min
+    const sp = 28 + 240 * (0.5 - 0.5 * Math.cos(2 * Math.PI * t / 28));
+    const accel = Math.sin(2 * Math.PI * t / 28) > 0;
+    let g = 1; while (g < 7 && sp / ratios[g] * 1000 > 8900) g++;
+    const rpm = Math.max(900, sp / ratios[g] * 1000);
+    const ph = Math.floor(t / 6) % 4;
+    const fuel = Math.max(5, 42 - t * 0.02);
+    return {
+      c: true, st: 2, v: sp, r: rpm, rm: 9000, g,
+      gas: accel ? 0.92 : 0, brk: accel ? 0 : 0.35 + 0.3 * Math.sin(t * 2.2),
+      fuel, fp: fuel / 60, laps: fuel / 2.4, fpl: 2.4,
+      low: true, high: Math.floor(t / 9) % 2 === 1,
+      L: ph === 1, R: ph === 3, haz: false,
+      hb: 0, pit: false, tc: accel && sp < 90, abs: !accel && sp > 120 && Math.sin(t * 5) > 0.6,
+      up: rpm > 8700, lim: false, run: true,
+      wt: 88 + 6 * Math.sin(t / 9), ot: 104 + 8 * Math.sin(t / 13), op: 4.2, boost: accel ? 0.9 : 0.1,
+      lap: (t * 1000) % 88500, last: 89123, best: 88342, delta: Math.sin(t / 3) * 420, valid: true,
+      pos: 3, nd: 12, tcl: 3, absl: 2, bb: 56.5,
+      car: 'FERRARI 296 GT3', track: 'MONZA', cfg: 'GRAND PRIX',
+    };
+  }
+
+  if (!demo) {
+    const es = new EventSource('/stream');
+    es.onmessage = e => { try { tgt = JSON.parse(e.data); lastMsg = performance.now(); } catch (_) {} };
+  }
+
+  /* ---------- boucle d'affichage ---------- */
+  const cur = { r: 0, v: 0, gas: 0, brk: 0, fp: 0 };
+  const ease = (a, b, dt, tau) => a + (b - a) * (1 - Math.exp(-dt / tau));
+  let lastT = performance.now();
+  let blinkStart = 0, blinkWas = false;
+
+  function frame(now) {
+    const dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+    const d = demo ? demoData(now / 1000) : tgt;
+    const live = !!d.c && (demo || now - lastMsg < 2000);
+
+    setA('wait', 'display', live ? 'none' : 'inline');
+    if (live) {
+      const max = d.rm || 8000;
+      if (Math.abs(max - builtMax) > 1) buildTach(max);
+      cur.r = ease(cur.r, d.r, dt, 0.035);
+      cur.v = ease(cur.v, d.v, dt, 0.05);
+      cur.gas = ease(cur.gas, d.gas, dt, 0.04);
+      cur.brk = ease(cur.brk, d.brk, dt, 0.04);
+      cur.fp = ease(cur.fp, d.fp, dt, 0.3);
+      const rf = clamp(cur.r / max);
+
+      // aiguille + anneau
+      setA('needleG', 'transform', `translate(${CX} ${CY}) rotate(${(A0 + SW * rf).toFixed(2)})`);
+      for (const s of ring) {
+        const on = s.f <= rf;
+        if (on !== s.on) { s.on = on; s.el.setAttribute('stroke', on ? s.col : C.off); }
+      }
+
+      // vitesse, rapport
+      setT('spd', String(Math.round(cur.v)));
+      const gtxt = d.g < 0 ? 'R' : d.g === 0 ? 'N' : String(d.g);
+      setT('gear', gtxt);
+      const shift = d.up || rf > 0.965;
+      const blink = Math.floor(now / 90) % 2 === 0;
+      setA('gear', 'style', 'fill:' + (shift && blink ? C.red : shift ? C.amber : C.ivory));
+
+      // shift lights
+      const lit = rf >= 0.72 ? 1 : 0;
+      const flashAll = (d.lim || rf > 0.975) && !blink;
+      for (const l of leds) {
+        const on = !flashAll && lit && rf >= 0.72 + 0.26 * (l.level / 13);
+        if (on !== l.on) { l.on = on; l.el.setAttribute('fill', on ? l.col : '#17140f'); if (on) l.el.setAttribute('filter', 'url(#glowS)'); else l.el.removeAttribute('filter'); }
+      }
+
+      // pédales
+      setA('brkBar', 'height', (84 * clamp(cur.brk)).toFixed(1)); setA('brkBar', 'y', (508 - 84 * clamp(cur.brk)).toFixed(1));
+      setA('gasBar', 'height', (84 * clamp(cur.gas)).toFixed(1)); setA('gasBar', 'y', (508 - 84 * clamp(cur.gas)).toFixed(1));
+
+      // clignotants
+      // le jeu envoie un état fixe (allumé / éteint) : le battement est fait ici,
+      // 350 ms allumé, 350 ms éteint, en repartant allumé à chaque activation
+      const want = !!(d.L || d.R || d.haz);
+      if (want && !blinkWas) blinkStart = now;
+      blinkWas = want;
+      const tick = want && (now - blinkStart) % 700 < 350;
+      const L = (d.L || d.haz) && tick, R = (d.R || d.haz) && tick;
+      setA('arrL', 'fill', L ? C.green : '#15231b'); setA('arrL', 'filter', L ? 'url(#glow)' : 'none');
+      setA('arrR', 'fill', R ? C.green : '#15231b'); setA('arrR', 'filter', R ? 'url(#glow)' : 'none');
+
+      // état de session
+      setT('status', d.st === 3 ? 'PAUSE' : d.st === 1 ? 'REPLAY' : d.pitlane ? 'PIT' : '');
+
+      // colonne gauche
+      setTfit('car', d.car || 'Assetto Corsa Evo', 192, 19);
+      setT('carSub', d.car ? 'Assetto Corsa Evo' : '');
+      setT('fuelN', num(d.fuel, 1));
+      const nSeg = Math.ceil(clamp(cur.fp) * 20 - 1e-6);
+      const fcol = cur.fp < 0.1 ? C.red : cur.fp < 0.25 ? C.amber : C.ivory;
+      fuelSegs.forEach((s, i) => {
+        const key = (i < nSeg ? 1 : 0) + fcol;
+        if (s.on !== key) { s.on = key; s.el.setAttribute('fill', i < nSeg ? fcol : C.off); }
+      });
+      setT('laps', d.laps > 0 ? `${d.laps.toFixed(1)} tours restants` : (d.fpl > 0 ? `${d.fpl.toFixed(1)} L par tour` : ''));
+      setT('waterN', d.wt == null ? '--' : String(Math.round(d.wt)));
+      setA('waterBar', 'width', (192 * clamp(((d.wt ?? 40) - 40) / 90)).toFixed(1));
+      setA('waterBar', 'fill', d.wt >= 115 ? C.red : d.wt >= 105 ? C.amber : C.ivory);
+      setT('oilN', d.ot == null ? '--' : String(Math.round(d.ot)));
+      setA('oilBar', 'width', (192 * clamp(((d.ot ?? 40) - 40) / 110)).toFixed(1));
+      setA('oilBar', 'fill', d.ot >= 145 ? C.red : d.ot >= 130 ? C.amber : C.ivory);
+      setT('oilP', num(d.op, 1));
+      setT('boost', num(d.boost, 2));
+      tell('low', !!d.low, C.green);
+      tell('high', !!d.high, C.blue);
+      tell('hb', d.hb > 0.3, C.red);
+      tell('pit', !!d.pit, C.amber);
+
+      // colonne droite
+      setTfit('track', d.track || '--', 192, 19);
+      setT('cfg', d.cfg || '');
+      setT('lapV', fmt(d.lap));
+      setA('lapV', 'style', 'fill:' + (d.valid === false ? C.red : C.ivory));
+      const dl = d.delta;
+      if (d.lap > 0 && dl && Math.abs(dl) < 60000) {
+        setT('delta', (dl < 0 ? '-' : '+') + (Math.abs(dl) / 1000).toFixed(3));
+        setA('delta', 'style', 'fill:' + (dl < 0 ? C.green : C.red));
+      } else setT('delta', '');
+      setT('bestV', fmt(d.best));
+      setT('lastV', fmt(d.last));
+      setT('posV', d.pos > 0 && d.nd > 1 ? `${d.pos} / ${d.nd}` : '--');
+      chip('tc', d.tcl == null ? '--' : String(d.tcl), !!d.tc);
+      chip('abs', d.absl == null ? '--' : String(d.absl), !!d.abs);
+      chip('bb', d.bb == null ? '--' : d.bb.toFixed(1), false);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  buildTach(9000);
+  requestAnimationFrame(frame);
+
+  // un toucher sur l'écran bascule le plein écran
+  addEventListener('click', () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  });
+})();
+</script>
+</body>
+</html>
