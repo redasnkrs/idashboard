@@ -38,10 +38,15 @@
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
   .dot.ok { background: var(--green); box-shadow: 0 0 10px var(--green); }
   .dot.err { background: var(--red); box-shadow: 0 0 10px var(--red); }
-  .link { text-decoration: none; font-size: 13px; color: var(--text);
-          border: 1px solid var(--line); border-radius: 99px; padding: 8px 14px;
-          background: var(--panel); transition: border-color .15s, background .15s; }
+  .link { text-decoration: none; font: inherit; cursor: pointer; font-size: 13px;
+          color: var(--text); border: 1px solid var(--line); border-radius: 99px;
+          padding: 8px 14px; background: var(--panel);
+          transition: border-color .15s, background .15s; }
   .link:hover { border-color: var(--amber); background: var(--panel2); }
+  .link.play { color: #17130d; background: var(--amber);
+               border-color: var(--amber); font-weight: 700; }
+  .link.play:hover { filter: brightness(1.08); background: var(--amber); }
+  .link:disabled { opacity: .55; cursor: wait; }
   .intro { display: flex; align-items: flex-end; justify-content: space-between;
            gap: 20px; flex-wrap: wrap; margin-bottom: 18px; }
   .intro h2 { margin: 0 0 6px; font-size: 22px; }
@@ -109,6 +114,7 @@
   </div>
   <div class="top-actions">
     <span class="pill"><span class="dot" id="live"></span><span id="liveTxt">connexion…</span></span>
+    <button class="link play" id="launchGame" type="button">Lancer AC Evo</button>
     <a class="link" href="/settings">Réglages</a>
   </div>
 </header>
@@ -259,6 +265,26 @@
         'Le pont ne répond pas. Lance « python main.py » puis recharge.'));
     }
   }
+  async function launchGame() {
+    const btn = $('launchGame');
+    btn.disabled = true;
+    toast('Lancement d’Assetto Corsa Evo…');
+    try {
+      const r = await fetch('/api/game/launch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) throw new Error(data.error || 'échec');
+      toast(data.method === 'steam' ? 'AC Evo lancé via Steam.' : 'AC Evo lancé.');
+    } catch (e) {
+      toast('Jeu non lancé : ' + e.message + ' — vérifie les Réglages.', true);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  $('launchGame').addEventListener('click', launchGame);
   load();
 })();
 </script>

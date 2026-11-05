@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 from adapters.fake import FakeSource
-from core import pump, themes
+from core import game, pump, themes
 from core.schema import validate
 from core.server import serve
 
@@ -18,6 +18,8 @@ class ServerTest(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory()
         cls.old_state = themes.STATE_FILE
         themes.STATE_FILE = Path(cls.tmp.name) / "active.json"
+        cls.old_game = game.GAME_FILE
+        game.GAME_FILE = Path(cls.tmp.name) / "game.json"
         threading.Thread(target=pump.poll_loop, args=(FakeSource(), False),
                          daemon=True).start()
         cls.server = serve(0)
@@ -29,6 +31,7 @@ class ServerTest(unittest.TestCase):
         cls.server.shutdown()
         cls.server.server_close()
         themes.STATE_FILE = cls.old_state
+        game.GAME_FILE = cls.old_game
         cls.tmp.cleanup()
 
     def get(self, path, timeout=5):
@@ -91,6 +94,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(200, status)
         self.assertIn("text/html", ctype)
         self.assertIn("Choisis ton compteur".encode(), body)
+        self.assertIn("Lancer AC Evo".encode(), body)
 
     def test_api_dashboards(self):
         status, _, body = self.get("/api/dashboards")
@@ -103,6 +107,50 @@ class ServerTest(unittest.TestCase):
         for item in data["dashboards"]:
             self.assertTrue(item["preview_url"])
             self.assertTrue(item["settings_url"].startswith("/settings"))
+
+    def test_game_api(self):
+        status, _, body = self.get("/api/game")
+        self.assertEqual(200, status)
+        info = json.loads(body)
+        self.assertEqual(game.DEFAULT_APP_ID, info["app_id"])
+        self.assertIn("exe_exists", info)
+        self.assertIn("detected", info)
+
+    def test_game_settings_roundtrip(self):
+        status, body = self.post("/api/game", {"exe": "/tmp/assetto-test.exe"})
+        self.assertEqual(200, status)
+        self.assertTrue(json.loads(body)["ok"])
+        _, _, raw = self.get("/api/game")
+        info = json.loads(raw)
+        self.assertEqual("/tmp/assetto-test.exe", info["exe"])
+        self.assertFalse(info["exe_exists"])
+
+    def test_game_settings_reject_bad_payload(self):
+        status, body = self.post("/api/game", {"exe": 42})
+        self.assertEqual(400, status)
+        self.assertFalse(json.loads(body)["ok"])
+
+    def test_game_launch_route(self):
+        old = game.launch
+        game.launch = lambda: {"ok": True, "method": "test"}
+        try:
+            status, body = self.post("/api/game/launch", {})
+        finally:
+            game.launch = old
+        self.assertEqual(200, status)
+        self.assertTrue(json.loads(body)["ok"])
+
+    def test_game_detect_route(self):
+        old = game.detect
+        game.detect = lambda: "/tmp/assetto-test.exe"
+        try:
+            status, body = self.post("/api/game/detect", {})
+        finally:
+            game.detect = old
+        self.assertEqual(200, status)
+        data = json.loads(body)
+        self.assertTrue(data["ok"])
+        self.assertEqual("/tmp/assetto-test.exe", data["exe"])
 
     def test_dashboard_injects_meta(self):
         status, _, body = self.get("/dashboard/course/acevo-minimal")
@@ -228,6 +276,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(200, status)
         self.assertIn("text/html", ctype)
         self.assertIn(b"R\xc3\xa9glages", body)
+        self.assertIn(b"Chemin d'Assetto Corsa Evo", body)
 
 
 if __name__ == "__main__":

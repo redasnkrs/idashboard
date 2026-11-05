@@ -29,5 +29,9 @@ test-results/
 themes/active.json
 themes/*.tmp
 
+# Chemin du jeu (réglage local)
+game.json
+game.tmp
+
 # Profil Chrome du mini écran (créé au lancement)
 .profile-7/

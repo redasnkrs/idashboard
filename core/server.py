@@ -25,7 +25,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from core import catalog, launcher, pump, themes
+from core import catalog, game, launcher, pump, themes
 from core.config import (DEFAULT_DASHBOARD, HOME_FILE, PORT, SETTINGS_FILE,
                          STREAM_HZ, dashboard_asset, dashboard_file,
                          dashboard_manifest, spec_for_path)
@@ -90,6 +90,8 @@ class Handler(BaseHTTPRequestHandler):
             self._file(HOME_FILE, "text/html; charset=utf-8")
         elif path == "/api/dash":
             self._send(pump.STATE["dash"], "application/json")
+        elif path == "/api/game":
+            self._send(json.dumps(game.status()).encode(), "application/json")
         elif path == "/api/dashboards":
             items = catalog.list_dashboards()
             categories = []
@@ -147,6 +149,12 @@ class Handler(BaseHTTPRequestHandler):
             self._reset_theme()
         elif path == "/api/launch":
             self._launch()
+        elif path == "/api/game":
+            self._save_game()
+        elif path == "/api/game/detect":
+            self._detect_game()
+        elif path == "/api/game/launch":
+            self._launch_game()
         else:
             self.send_error(405)
 
@@ -237,6 +245,32 @@ class Handler(BaseHTTPRequestHandler):
         result = launcher.open_dashboard(item["spec"])
         self._send(json.dumps(result).encode(), "application/json",
                    200 if result.get("ok") else 500)
+
+    def _save_game(self):
+        try:
+            game.save(self._read_json())
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            body = json.dumps({"ok": False, "error": str(exc)}).encode()
+            self._send(body, "application/json", 400)
+            return
+        body = json.dumps({"ok": True, "game": game.status()}).encode()
+        self._send(body, "application/json")
+
+    def _detect_game(self):
+        found = game.detect()
+        if found:
+            try:
+                game.save({"exe": found})
+            except ValueError:
+                pass
+        body = json.dumps({"ok": bool(found), "exe": found,
+                           "game": game.status()}).encode()
+        self._send(body, "application/json")
+
+    def _launch_game(self):
+        result = game.launch()
+        self._send(json.dumps(result).encode(), "application/json",
+                   200 if result.get("ok") else 400)
 
     def _theme_stream(self):
         """Pousse seulement le numero de revision du theme."""

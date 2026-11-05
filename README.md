@@ -42,6 +42,19 @@ Sur le 7" tactile, un balayage vers la gauche passe au compteur suivant, vers
 la droite au précédent (le catalogue boucle). Les flèches ← / → font la même
 chose au clavier. Le balayage est désactivé dans l'aperçu des réglages.
 
+## Lancer Assetto Corsa Evo
+
+Depuis l'accueil (bouton « Lancer AC Evo ») ou la section « Jeu » de
+`/settings` :
+
+- chemin de l'exécutable `AssettoCorsaEVO.exe` (bouton « Détecter » pour
+  chercher dans les bibliothèques Steam) ;
+- si le champ est vide, lancement via Steam (`steam://rungameid/3058630`) ;
+- le chemin est enregistré dans `game.json` (ignoré par git).
+
+Le lancement réel du jeu est disponible sous Windows ; sur Mac/Linux, la
+logique est testable avec un exécutable quelconque mais le jeu n'existe pas.
+
 ## Routes
 
 | Route | Contenu |
@@ -62,6 +75,9 @@ chose au clavier. Le balayage est désactivé dans l'aperçu des réglages.
 | `/api/themes/stream` | SSE : numéro de révision du thème |
 | `/api/themes/reset` | réinitialise une portée (POST) |
 | `/api/launch` | ouvre un compteur sur le mini écran (POST) |
+| `/api/game` | état du lancement + chemin du jeu (GET), enregistrement (POST) |
+| `/api/game/detect` | détecte l'installation Steam d'AC Evo (POST) |
+| `/api/game/launch` | lance Assetto Corsa Evo (POST) |
 | `/api/ets2/telemetry` | format « ETS2 Telemetry Server » (Macro Deck) |
 
 ## Thèmes et réglages
@@ -81,7 +97,7 @@ peuvent être définis globalement, par jeu, par voiture ou par compteur
 core/          schema.py (contrat), config.py, pump.py (lecture), server.py,
                themes.py (palettes, résolution, diffusion), catalog.py
                (catalogue des compteurs), launcher.py (Chrome sur le 7"),
-               nav_snippet.py (balayage tactile entre compteurs)
+               nav_snippet.py (balayage tactile), game.py (lancement AC Evo)
 adapters/      acevo.py (source du jeu), fake.py (tests), base.py (interface)
 dashboards/    course/acevo-cluster/  compteur complet
                course/acevo-minimal/  compteur minimal

@@ -38,6 +38,8 @@ Structure après la Phase 2 et le début de la Phase 3 :
 | `core/themes.py` | Palettes, résolution par compteur/jeu/voiture, sauvegarde, diffusion. |
 | `core/launcher.py` | Ouverture de Chrome `--app` sur le mini écran. |
 | `core/nav_snippet.py` | Script injecté dans les compteurs : balayage tactile / flèches entre compteurs. |
+| `core/game.py` | Lancement d'AC Evo : chemin `game.json`, détection Steam, repli protocole Steam. |
+| `game.json` | Chemin de l'exécutable du jeu (réglage local, hors git). |
 | `adapters/acevo.py` | Source AC Evo (mémoire partagée, structures `ctypes`). |
 | `adapters/fake.py` | Fausse source animée pour Mac/Linux/tests. |
 | `adapters/base.py` | Interface commune des sources (`read()`, `ets2()`). |
@@ -102,6 +104,7 @@ est utilisé sur le PC.
 - **Lanceur** (`core/launcher.py`) : cherche Chrome/Chromium/Edge (chemins Windows, applications macOS, PATH Linux), puis lance `--app --start-fullscreen --user-data-dir=.profile-7 --window-position --window-size` avec les coordonnées de `config.SCREEN` (surchargées par `IDASH_SCREEN_X/Y/W/H`). Sous Windows les coordonnées sont toujours appliquées ; ailleurs seulement si `IDASH_SCREEN_X` est fourni (sinon Chrome s'ouvre normalement). Ferme l'ancienne fenêtre si on change de compteur ; évite les doublons. Si aucun Chromium n'est trouvé, ouvre le navigateur par défaut. Le profil `.profile-7/` est ignoré par git.
 - **Identité injectée** : le serveur insère `window.__IDASH__` (`spec`, `id`, `name`, `category`, `game`, `game_id`, `schema`, `schema_version`, `size`) avant `</head>`. Les compteurs n'ont plus besoin de coder leur nom en dur ; les paramètres `?dashboard=`, `?game=`, `?car=`, `?demo`, `?nogame`, `?nodash` restent disponibles pour les aperçus.
 - **Navigation tactile** : le serveur injecte aussi `core/nav_snippet.py` dans chaque compteur. Un balayage horizontal (ou les flèches ← / →) passe au compteur précédent / suivant du catalogue (`/api/dashboards`, bouclage), avec un petit glissement et conservation des paramètres (`?demo`, `?game`, `?car`). Désactivé dans l'iframe d'aperçu des réglages (`window.top !== window.self`).
+- **Lancement du jeu** : `core/game.py` + routes `/api/game`, `/api/game/detect`, `/api/game/launch`. Le chemin de l'exe est dans `game.json` (hors git) ; détection via le registre Steam et `libraryfolders.vdf` ; si vide, lancement par `steam://rungameid/3058630`. Bouton « Lancer AC Evo » sur l'accueil et section « Jeu » dans `/settings` (chemin, détecter, enregistrer, lancer).
 - **Portée thème compteur** : en plus de global / jeu / voiture, `dashboards` s'applique à un `spec` précis. Résolution : **compteur > voiture > jeu > global**. La page de réglages permet de choisir la portée « Compteur » et de réinitialiser la portée courante.
 - **Compteur minimal** (`dashboards/course/acevo-minimal/`) : vitesse, rapport, barre de régime, 27 shift lights, voyants (icônes feux / route / frein, texte PIT) et aides (TC/ABS avec leur niveau). Même contrat de données, même thème, mêmes unités, blocs `telltales` / `aids` / `shiftlights`. Il gère aussi la veille grise et le réveil (barre de régime + LEDs + voyants) via `?demo&ign=off` / `?demo&ign=wake`.
 
@@ -151,7 +154,7 @@ Le format `/api/ets2/telemetry` est un second format, indépendant, calqué sur 
 - Phase 1 : les 16 tests passent (`python -m unittest discover -s tests -v`) et les captures Playwright 1024x600 / 1024x560 montrent le même design qu'avant.
 - `core/schema.py` valide la sortie de `adapters/fake.py` et l'état déconnecté `{"c": false}`.
 - Phase 2 : 27 tests passent. Captures Playwright des 3 thèmes à 1024x600 et 1024x560. Une couleur changée dans `/settings` est enregistrée et appliquée dans l'aperçu sans rechargement (vérifié via Playwright, aucune erreur JS). Unités mph/°F et masquage de blocs vérifiés.
-- Phase 3 (partiel) : 36 tests passent (catalogue, accueil, injection `__IDASH__`, assets, redirection `/dashboard`, reset de portée, rejet d'un compteur inconnu, lanceur). Captures Playwright des 3 thèmes pour les 2 compteurs, de l'accueil et des réglages, plus les états `ign=off` (veille grise) et `ign=wake` (test des voyants + balayage) ; aucune erreur JS. Le balayage tactile gauche/droite est vérifié via Playwright (cluster ↔ minimal). Les `preview.png` sont générés depuis les pages réelles. Lancement Chrome réel **non testable sur Mac**.
+- Phase 3 (partiel) : 48 tests passent (catalogue, accueil, injection `__IDASH__`, assets, redirection `/dashboard`, reset de portée, rejet d'un compteur inconnu, lanceur, réglages et lancement du jeu). Captures Playwright des 3 thèmes pour les 2 compteurs, de l'accueil et des réglages, plus les états `ign=off` (veille grise) et `ign=wake` (test des voyants + balayage) ; aucune erreur JS. Le balayage tactile gauche/droite est vérifié via Playwright (cluster ↔ minimal). Les `preview.png` sont générés depuis les pages réelles. Lancement Chrome réel et lancement Steam **à confirmer sur le PC**.
 - Contact : la veille et le réveil sont vérifiés en démo Playwright sur les deux compteurs. La valeur réelle `ign` (`is_ignition_on`) reste **à confirmer sur le PC** avec `python main.py --debug`.
 
 ### Vérifié sur le PC de l'utilisateur
@@ -206,6 +209,7 @@ Chaque phase est utilisable seule. Ne commencer la suivante que si la précéden
 - [x] **Menu en catégories** (Course, Aviation, …) → tableaux de bord, avec **plusieurs compteurs au choix par jeu**. Chaque tableau de bord a un `manifest.json` (nom, catégorie, jeu, taille, aperçu, contrat de données utilisé) ; ajouter un dossier suffit à l'ajouter au menu
 - [x] **Catalogue automatique** (`core/catalog.py`) alimenté par `/api/dashboards`, filtres par catégorie sur l'accueil
 - [x] Bouton « Lancer sur le 7" » (Chrome `--app`, profil dédié, coordonnées de l'écran) + aperçu et options par compteur
+- [x] Bouton « Lancer le jeu » (AC Evo) : chemin exe configurable, détection Steam, repli `steam://rungameid/3058630`, depuis l'accueil et les réglages
 - [ ] Détection automatique du mini écran (par résolution 1024x600, ou choix dans les réglages) : aujourd'hui les coordonnées sont dans `config.SCREEN` / variables d'environnement
 - [ ] Mémorisation du dernier compteur choisi par jeu
 - [ ] Icône dans la barre des tâches, démarrage automatique avec Windows
@@ -249,7 +253,9 @@ Chaque phase est utilisable seule. Ne commencer la suivante que si la précéden
 idashboard/
   core/          schema.py (contrat), config.py, pump.py, server.py,
                  themes.py (palettes, résolution, diffusion), catalog.py,
-                 launcher.py (Chrome --app sur le 7"), nav_snippet.py
+                 launcher.py (Chrome --app sur le 7"), nav_snippet.py,
+                 game.py (lancement AC Evo)
+  game.json      chemin du jeu (hors git)
   adapters/      base.py, acevo.py, fake.py  (iracing.py plus tard)
   dashboards/    course/acevo-cluster/  index.html + manifest.json + preview.png
                  course/acevo-minimal/  idem

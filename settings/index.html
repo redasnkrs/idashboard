@@ -50,6 +50,17 @@
   summary { cursor: pointer; color: var(--muted); font-size: 12px; margin: 8px 0; }
   #status { margin-top: 18px; font-size: 12px; color: var(--ok); min-height: 18px; }
   #status.err { color: #ff5a5a; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 4px; }
+  .btn2 { font: inherit; font-size: 12px; cursor: pointer; padding: 7px 11px;
+          color: var(--text); background: transparent; border: 1px solid var(--line);
+          border-radius: 6px; }
+  .btn2:hover { border-color: var(--accent); }
+  .btn2.primary { color: #17130d; background: var(--accent);
+                  border-color: var(--accent); font-weight: 700; }
+  #gameStatus { font-size: 11px; color: var(--muted); min-height: 16px;
+                margin-top: 4px; word-break: break-all; }
+  #gameStatus.ok { color: var(--ok); }
+  #gameStatus.err { color: #ff5a5a; }
   .reset { font: inherit; font-size: 12px; cursor: pointer; margin-top: 10px;
            background: transparent; color: var(--muted); border: 1px solid var(--line);
            border-radius: 6px; padding: 8px 12px; }
@@ -71,6 +82,18 @@
   <a class="back" href="/">← Tous les compteurs</a>
   <h1>Réglages du tableau de bord</h1>
   <div class="sub">Les changements sont enregistrés et appliqués en direct sur le 7".</div>
+
+  <h2 style="margin-top:4px">Jeu</h2>
+  <label class="field"><span>Chemin d'Assetto Corsa Evo</span>
+    <input type="text" id="gameExe" placeholder="…\Assetto Corsa EVO\AssettoCorsaEVO.exe">
+    <div class="hint">Laisse vide pour lancer via Steam (app 3058630).</div>
+  </label>
+  <div class="row">
+    <button class="btn2" id="gameDetect" type="button">Détecter</button>
+    <button class="btn2" id="gameSave" type="button">Enregistrer</button>
+    <button class="btn2 primary" id="gameLaunch" type="button">Lancer le jeu</button>
+  </div>
+  <div id="gameStatus"></div>
 
   <label class="field"><span>Thème</span><select id="preset"></select></label>
   <label class="field"><span>Portée</span>
@@ -221,6 +244,77 @@
     const el = $('status');
     el.textContent = text;
     el.className = error ? 'err' : '';
+  }
+
+  function setGameStatus(text, cls) {
+    const el = $('gameStatus');
+    el.textContent = text;
+    el.className = cls || '';
+  }
+
+  async function saveGame() {
+    const exe = $('gameExe').value.trim();
+    const r = await fetch('/api/game', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exe }),
+    });
+    const data = await r.json();
+    if (!r.ok || !data.ok) throw new Error(data.error || 'erreur');
+    return data;
+  }
+
+  async function loadGame() {
+    try {
+      const g = await fetch('/api/game', { cache: 'no-store' }).then(r => r.json());
+      $('gameExe').value = g.exe || '';
+      if (g.platform !== 'win32') {
+        if (!g.exe) setGameStatus('Lancement du jeu : Windows uniquement.', '');
+        else if (g.exe_exists) setGameStatus('Chemin enregistré.', 'ok');
+        else setGameStatus('Chemin enregistré, mais fichier introuvable.', 'err');
+      } else if (g.exe_exists) {
+        setGameStatus('Chemin du jeu enregistré.', 'ok');
+      } else if (g.detected) {
+        $('gameExe').value = g.detected;
+        setGameStatus('Jeu détecté automatiquement.', 'ok');
+      } else {
+        setGameStatus('Laisse vide pour lancer via Steam.', '');
+      }
+    } catch (_) {}
+  }
+
+  async function detectGame() {
+    try {
+      setGameStatus('Recherche…', '');
+      const r = await fetch('/api/game/detect', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      const data = await r.json();
+      if (!data.ok || !data.exe) {
+        setGameStatus('Jeu introuvable. Renseigne le chemin à la main.', 'err');
+        return;
+      }
+      $('gameExe').value = data.exe;
+      setGameStatus('Jeu détecté : ' + data.exe, 'ok');
+    } catch (e) {
+      setGameStatus('Échec : ' + e.message, 'err');
+    }
+  }
+
+  async function launchGame() {
+    try {
+      setGameStatus('Lancement…', '');
+      await saveGame();
+      const r = await fetch('/api/game/launch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) throw new Error(data.error || 'échec');
+      setGameStatus(data.method === 'steam' ? 'Lancé via Steam.' : 'Jeu lancé.', 'ok');
+    } catch (e) {
+      setGameStatus('Échec : ' + e.message, 'err');
+    }
   }
 
   let timer = 0;
@@ -379,10 +473,29 @@
       if ($('scope').value === 'dashboard') loadEffective();
     });
     $('reset').addEventListener('click', resetScope);
+    $('gameDetect').addEventListener('click', detectGame);
+    $('gameLaunch').addEventListener('click', launchGame);
+    $('gameSave').addEventListener('click', async () => {
+      try {
+        const data = await saveGame();
+        const g = data.game || {};
+        if (!g.exe) {
+          setGameStatus(g.platform === 'win32'
+            ? 'Lancement via Steam.' : 'Lancement du jeu : Windows uniquement.', '');
+        } else if (g.exe_exists) {
+          setGameStatus('Chemin enregistré.', 'ok');
+        } else {
+          setGameStatus('Chemin enregistré, mais fichier introuvable.', 'err');
+        }
+      } catch (e) {
+        setGameStatus('Échec : ' + e.message, 'err');
+      }
+    });
     $('unitSpeed').addEventListener('change', scheduleSave);
     $('unitTemp').addEventListener('change', scheduleSave);
     addEventListener('resize', fitPreview);
 
+    loadGame();
     fitPreview();
     updateScopeUi();
   }
