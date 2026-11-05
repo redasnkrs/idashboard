@@ -33,6 +33,11 @@ Ouvre ensuite `http://localhost:25555/`. Pour voir seulement le design, sans
 serveur : ouvre `dashboards/course/acevo-cluster/index.html?demo` ou
 `dashboards/course/acevo-minimal/index.html?demo` dans un navigateur.
 
+Contact / veille : quand le contact est coupé (`ign` faux et moteur arrêté),
+tout le compteur passe en gris. Au contact, test des voyants + balayage
+pendant ~2,4 s avant l'affichage normal. Pour tester sans le jeu :
+`?demo&ign=off` (veille) et `?demo&ign=wake` (coupé puis réveil).
+
 ## Routes
 
 | Route | Contenu |

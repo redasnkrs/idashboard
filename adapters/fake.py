@@ -41,7 +41,7 @@ class FakeSource(Source):
             "tc": accel and speed < 90,
             "abs": (not accel) and speed > 120 and math.sin(t * 5) > 0.6,
             "esc": False,
-            "lim": False, "up": rpm > 8700, "run": True,
+            "lim": False, "up": rpm > 8700, "run": True, "ign": True,
             "wt": 88 + 6 * math.sin(t / 9), "ot": 104 + 8 * math.sin(t / 13),
             "op": 4.2, "boost": 0.9 if accel else 0.1,
             "lap": int((t * 1000) % 88500), "last": 89123, "best": 88342,

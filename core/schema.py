@@ -39,6 +39,7 @@ DASH_SCHEMA = {
     "lim": "bool",
     "up": "bool",
     "run": "bool",
+    "ign": "bool",
     "wt": "number|null",
     "ot": "number|null",
     "op": "number|null",

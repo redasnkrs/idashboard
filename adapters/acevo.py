@@ -206,6 +206,7 @@ def build_dash(phys, gfx, st):
         "esc": bool(gfx.esc_active),
         "lim": bool(gfx.is_rpm_limiter_on), "up": bool(gfx.is_change_up_rpm),
         "run": bool(gfx.is_engine_running),
+        "ign": bool(gfx.is_ignition_on),
         "wt": plausible(float(gfx.water_temperature_c), -20, 200),
         "ot": plausible(float(gfx.oil_temperature_c), -20, 250),
         "op": plausible(float(gfx.oil_pressure_bar), 0, 20),

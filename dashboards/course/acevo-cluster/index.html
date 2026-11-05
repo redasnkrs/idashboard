@@ -19,7 +19,9 @@
     --font: "Bahnschrift", "DIN Alternate", "Segoe UI", system-ui, sans-serif;
   }
   html, body { margin: 0; height: 100%; background: var(--ink); overflow: hidden; cursor: none; user-select: none; -webkit-user-select: none; }
-  svg { display: block; width: 100vw; height: 100vh; }
+  svg { display: block; width: 100vw; height: 100vh;
+        transition: filter .55s ease, opacity .55s ease; }
+  svg.sleep { filter: grayscale(1) brightness(.52) contrast(.9); opacity: .8; }
   text { font-family: var(--font); font-feature-settings: "tnum" 1; fill: var(--ivory); }
   .lbl  { font-size: 12px; fill: var(--muted); letter-spacing: .03em; }
   .name { font-size: 19px; font-weight: 700; }
@@ -29,7 +31,10 @@
   .sub  { font-size: 13px; fill: var(--muted); }
   @keyframes pulse { 0%, 100% { opacity: .35 } 50% { opacity: 1 } }
   #wait .dot { animation: pulse 1.6s ease-in-out infinite; }
-  @media (prefers-reduced-motion: reduce) { #wait .dot { animation: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    svg { transition: none; }
+    #wait .dot { animation: none; }
+  }
 </style>
 </head>
 <body>
@@ -411,6 +416,7 @@
   const params = new URLSearchParams(location.search);
   const demo = params.has('demo');
   const demoOffset = Number(params.get('demo')) || 0;
+  const demoIgn = params.get('ign');
   const META = window.__IDASH__ || {};
   const DASHBOARD = params.has('nodash') ? null : (params.get('dashboard') || META.spec || null);
   const GAME = params.has('nogame') ? null : (params.get('game') || META.game_id || 'acevo');
@@ -445,6 +451,8 @@
     const rpm = Math.max(900, sp / ratios[g] * 1000);
     const ph = Math.floor(t / 6) % 4;
     const fuel = Math.max(5, 42 - t * 0.02);
+    const off = demoIgn === 'off' ||
+      (demoIgn === 'wake' && t - demoOffset < 1.5);
     return {
       c: true, st: 2, v: sp, r: rpm, rm: 9000, g,
       gas: accel ? 0.92 : 0, brk: accel ? 0 : 0.35 + 0.3 * Math.sin(t * 2.2),
@@ -452,7 +460,7 @@
       low: true, high: Math.floor(t / 9) % 2 === 1,
       L: ph === 1, R: ph === 3, haz: false,
       hb: 0, pit: false, tc: accel && sp < 90, abs: !accel && sp > 120 && Math.sin(t * 5) > 0.6,
-      up: rpm > 8700, lim: false, run: true,
+      up: rpm > 8700, lim: false, run: !off, ign: !off,
       wt: 88 + 6 * Math.sin(t / 9), ot: 104 + 8 * Math.sin(t / 13), op: 4.2, boost: accel ? 0.9 : 0.1,
       lap: (t * 1000) % 88500, last: 89123, best: 88342, delta: Math.sin(t / 3) * 420, valid: true,
       pos: 3, nd: 12, tcl: 3, absl: 2, bb: 56.5,
@@ -465,6 +473,81 @@
     es.onmessage = e => { try { tgt = JSON.parse(e.data); lastMsg = performance.now(); } catch (_) {} };
   }
 
+  /* ---------- contact : veille grise et test des voyants ---------- */
+  const WAKE_MS = 2400, CONTACT_DEBOUNCE = 220;
+  let powerState = 'on', powerRaw = null, powerChanged = 0, wakeStart = 0;
+
+  function setSleep(on) {
+    const el = $('d');
+    if (on) el.classList.add('sleep');
+    else el.classList.remove('sleep');
+  }
+  function contactOf(d) {
+    if (d.ign !== undefined) return !!(d.ign || d.run);
+    if (d.run !== undefined) return !!d.run;
+    return true;
+  }
+  function sleepData(d) {
+    return Object.assign({}, d, {
+      st: 0, v: 0, r: 0, g: 0, gas: 0, brk: 0, clu: 0, hb: 0,
+      low: false, high: false, L: false, R: false, haz: false,
+      pit: false, pitlane: false, tc: false, abs: false, esc: false,
+      lim: false, up: false, run: false, ign: false,
+      fuel: null, fp: 0, fpl: 0, laps: 0,
+      wt: null, ot: null, op: null, boost: null,
+      lap: 0, last: 0, best: 0, delta: 0, valid: true,
+      pos: 0, nd: 0, tcl: null, absl: null, bb: null,
+    });
+  }
+  function wakeData(d, elapsed) {
+    const p = Math.min(1, elapsed / WAKE_MS);
+    const sweep = p < 0.55 ? p / 0.55 : Math.max(0, 1 - (p - 0.55) / 0.45);
+    const bulb = p < 0.34;
+    return Object.assign({}, d, {
+      st: 2, v: 0, r: (d.rm || 8000) * sweep, g: 0,
+      gas: 0, brk: 0, clu: 0, hb: 0,
+      low: bulb, high: bulb, L: bulb, R: bulb, haz: false,
+      pit: bulb, pitlane: false, tc: bulb, abs: bulb, esc: false,
+      lim: false, up: false, ign: true,
+      lap: 0, last: 0, best: 0, delta: 0, valid: true,
+      pos: 0, nd: 0,
+    });
+  }
+  function updatePower(d, live, now) {
+    if (!live) {
+      setSleep(false);
+      powerState = 'on';
+      powerRaw = null;
+      return { state: 'on', data: d };
+    }
+    const raw = contactOf(d);
+    if (powerRaw === null) {
+      powerRaw = raw;
+      powerState = raw ? 'on' : 'off';
+      powerChanged = now;
+      setSleep(!raw);
+    } else if (raw !== powerRaw) {
+      powerRaw = raw;
+      powerChanged = now;
+    }
+    if (now - powerChanged >= CONTACT_DEBOUNCE) {
+      if (powerRaw && powerState === 'off') {
+        powerState = 'wake';
+        wakeStart = now;
+        setSleep(false);
+      } else if (!powerRaw && powerState !== 'off') {
+        powerState = 'off';
+        setSleep(true);
+      }
+    }
+    if (powerState === 'wake' && now - wakeStart >= WAKE_MS) powerState = 'on';
+    if (powerState === 'off') return { state: 'off', data: sleepData(d) };
+    if (powerState === 'wake') {
+      return { state: 'wake', data: wakeData(d, now - wakeStart) };
+    }
+    return { state: 'on', data: d };
+  }
+
   /* ---------- boucle d'affichage ---------- */
   const cur = { r: 0, v: 0, gas: 0, brk: 0, fp: 0 };
   const ease = (a, b, dt, tau) => a + (b - a) * (1 - Math.exp(-dt / tau));
@@ -473,8 +556,10 @@
 
   function frame(now) {
     const dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
-    const d = demo ? demoData(now / 1000) : tgt;
-    const live = !!d.c && (demo || now - lastMsg < 2000);
+    const raw = demo ? demoData(now / 1000) : tgt;
+    const live = !!raw.c && (demo || now - lastMsg < 2000);
+    const power = updatePower(raw, live, now);
+    const d = power.data;
 
     setA('wait', 'display', live ? 'none' : 'inline');
     if (live) {

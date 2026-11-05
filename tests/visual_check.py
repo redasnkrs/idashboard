@@ -87,6 +87,34 @@ def main():
                 print(target)
                 page.close()
 
+            for item in dashboards:
+                page = new_page()
+                page.goto("%s%s?demo&ign=off&nogame=1" % (base, item["url"]),
+                          wait_until="load")
+                page.wait_for_timeout(1200)
+                if not page.eval_on_selector(
+                        "#d", "el => el.classList.contains('sleep')"):
+                    errors.append("%s: veille absente" % item["id"])
+                if page.eval_on_selector(
+                        "#spd", "el => el.textContent") != "0":
+                    errors.append("%s: vitesse non remise a zero" % item["id"])
+                path = OUT / ("%s-off.png" % item["id"])
+                page.screenshot(path=str(path))
+                print(path)
+                page.close()
+
+                page = new_page()
+                page.goto("%s%s?demo&ign=wake&nogame=1" % (base, item["url"]),
+                          wait_until="load")
+                page.wait_for_timeout(2900)
+                if page.eval_on_selector(
+                        "#d", "el => el.classList.contains('sleep')"):
+                    errors.append("%s: reveil absent" % item["id"])
+                path = OUT / ("%s-wake.png" % item["id"])
+                page.screenshot(path=str(path))
+                print(path)
+                page.close()
+
             page = new_page(1400, 980)
             page.goto(base + "/", wait_until="networkidle")
             page.wait_for_timeout(500)

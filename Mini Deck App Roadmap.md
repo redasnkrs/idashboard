@@ -92,6 +92,7 @@ est utilisé sur le PC.
 - Police : **Bahnschrift** (présente sur Windows 10/11), avec police de secours.
 - Style : fond noir, chiffres ivoire, aiguille et anneau ambre, zone rouge ; pas de cartes arrondies, colonnes ouvertes séparées par des filets.
 - **Thème** : toutes les couleurs viennent de `themes/*.json` (variables CSS, objet `C` en JavaScript, dégradés SVG et valeurs des composants). La page charge `/api/themes/active`, écoute `/api/themes/stream` et applique les changements à chaud. Les unités (km/h ↔ mph, °C ↔ °F) et les blocs visibles (`car`, `fuel`, `water`, …) viennent aussi du thème.
+- **Contact / veille** : si `ign` et `run` sont faux (contact coupé, moteur arrêté), toute la page passe en veille grise (filtre CSS) et les valeurs reviennent à zéro. Au retour du contact (`ign` ou `run` vrai), test de tous les voyants puis balayage aiguille / anneau / shift lights pendant ~2,4 s avant l'affichage normal. Anti-rebond ~220 ms. En démo : `?demo&ign=off` et `?demo&ign=wake`.
 
 ### 3.3 Accueil, catalogue, lanceur et compteur minimal (début Phase 3)
 
@@ -100,7 +101,7 @@ est utilisé sur le PC.
 - **Lanceur** (`core/launcher.py`) : cherche Chrome/Chromium/Edge (chemins Windows, applications macOS, PATH Linux), puis lance `--app --start-fullscreen --user-data-dir=.profile-7 --window-position --window-size` avec les coordonnées de `config.SCREEN` (surchargées par `IDASH_SCREEN_X/Y/W/H`). Sous Windows les coordonnées sont toujours appliquées ; ailleurs seulement si `IDASH_SCREEN_X` est fourni (sinon Chrome s'ouvre normalement). Ferme l'ancienne fenêtre si on change de compteur ; évite les doublons. Si aucun Chromium n'est trouvé, ouvre le navigateur par défaut. Le profil `.profile-7/` est ignoré par git.
 - **Identité injectée** : le serveur insère `window.__IDASH__` (`spec`, `id`, `name`, `category`, `game`, `game_id`, `schema`, `schema_version`, `size`) avant `</head>`. Les compteurs n'ont plus besoin de coder leur nom en dur ; les paramètres `?dashboard=`, `?game=`, `?car=`, `?demo`, `?nogame`, `?nodash` restent disponibles pour les aperçus.
 - **Portée thème compteur** : en plus de global / jeu / voiture, `dashboards` s'applique à un `spec` précis. Résolution : **compteur > voiture > jeu > global**. La page de réglages permet de choisir la portée « Compteur » et de réinitialiser la portée courante.
-- **Compteur minimal** (`dashboards/course/acevo-minimal/`) : vitesse, rapport, barre de régime, 27 shift lights, voyants (feux, route, frein, pit) et aides (TC/ABS). Même contrat de données, même thème, mêmes unités, blocs `telltales` / `aids` / `shiftlights`.
+- **Compteur minimal** (`dashboards/course/acevo-minimal/`) : vitesse, rapport, barre de régime, 27 shift lights, voyants (icônes feux / route / frein, texte PIT) et aides (TC/ABS avec leur niveau). Même contrat de données, même thème, mêmes unités, blocs `telltales` / `aids` / `shiftlights`. Il gère aussi la veille grise et le réveil (barre de régime + LEDs + voyants) via `?demo&ign=off` / `?demo&ign=wake`.
 
 ## 4. Contrat de données (format `/stream` et `/api/dash`)
 
@@ -121,7 +122,7 @@ Une valeur inconnue ou incohérente vaut `null` (la page affiche `--`). Les clé
 | `L`, `R`, `haz` | bool | clignotants gauche, droit, warnings (état fixe, pas le battement) |
 | `pit`, `pitlane` | bool | limiteur de pit actif, voiture dans la voie des stands |
 | `tc`, `abs`, `esc` | bool | aide en train d'agir |
-| `lim`, `up`, `run` | bool | limiteur de régime, indicateur de passage de rapport, moteur tournant |
+| `lim`, `up`, `run`, `ign` | bool | limiteur de régime, indicateur de passage de rapport, moteur tournant, contact mis |
 | `wt`, `ot` | nombre ou null | température d'eau et d'huile, °C |
 | `op`, `boost` | nombre ou null | pression d'huile, turbo, bar |
 | `lap`, `last`, `best`, `delta` | int | tour en cours, dernier, meilleur, delta, en millisecondes (≤ 0 ou énorme = inconnu) |
@@ -148,13 +149,14 @@ Le format `/api/ets2/telemetry` est un second format, indépendant, calqué sur 
 - Phase 1 : les 16 tests passent (`python -m unittest discover -s tests -v`) et les captures Playwright 1024x600 / 1024x560 montrent le même design qu'avant.
 - `core/schema.py` valide la sortie de `adapters/fake.py` et l'état déconnecté `{"c": false}`.
 - Phase 2 : 27 tests passent. Captures Playwright des 3 thèmes à 1024x600 et 1024x560. Une couleur changée dans `/settings` est enregistrée et appliquée dans l'aperçu sans rechargement (vérifié via Playwright, aucune erreur JS). Unités mph/°F et masquage de blocs vérifiés.
-- Phase 3 (partiel) : 34 tests passent (catalogue, accueil, injection `__IDASH__`, assets, redirection `/dashboard`, reset de portée, rejet d'un compteur inconnu). Captures Playwright des 3 thèmes pour les 2 compteurs, de l'accueil et des réglages ; aucune erreur JS. Les `preview.png` sont générés depuis les pages réelles. Lancement Chrome réel **non testable sur Mac**.
+- Phase 3 (partiel) : 36 tests passent (catalogue, accueil, injection `__IDASH__`, assets, redirection `/dashboard`, reset de portée, rejet d'un compteur inconnu, lanceur). Captures Playwright des 3 thèmes pour les 2 compteurs, de l'accueil et des réglages, plus les états `ign=off` (veille grise) et `ign=wake` (test des voyants + balayage) ; aucune erreur JS. Les `preview.png` sont générés depuis les pages réelles. Lancement Chrome réel **non testable sur Mac**.
+- Contact : la veille et le réveil sont vérifiés en démo Playwright sur les deux compteurs. La valeur réelle `ign` (`is_ignition_on`) reste **à confirmer sur le PC** avec `python main.py --debug`.
 
 ### Vérifié sur le PC de l'utilisateur
 - 2026-11-05 : après `git pull`, `lancer.bat` démarre le pont et le compteur s'affiche correctement sur le 7" depuis la nouvelle structure (vraie source AC Evo). Phase 1 confirmée.
 
 ### Pas vérifié valeur par valeur (layout issu de `kerb`, lecture cohérente mais à confirmer)
-Nom de la voiture et du circuit, temps au tour (dernier, meilleur, delta), position, niveaux TC/ABS, balance de freinage, températures d'eau et d'huile, frein à main, voie des stands. Pour confirmer : lancer `python acevo_bridge.py --debug` et regarder la ligne affichée toutes les 0,5 s.
+Nom de la voiture et du circuit, temps au tour (dernier, meilleur, delta), position, niveaux TC/ABS, balance de freinage, températures d'eau et d'huile, frein à main, voie des stands, **contact (`is_ignition_on`)**. Pour confirmer : lancer `python acevo_bridge.py --debug` et regarder la ligne affichée toutes les 0,5 s (`ign=… run=…`).
 
 ### Pièges déjà rencontrés (ne pas les refaire)
 - **Plugin Macro Deck ETS2** : il interroge le serveur toutes les 200 ms (5 Hz) → aiguille saccadée. C'est pour ça que le tableau de bord est une page web à 60 Hz.

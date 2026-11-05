@@ -13,6 +13,8 @@ class SchemaTest(unittest.TestCase):
     def test_fake_source_respects_contract(self):
         dash = FakeSource().read()
         self.assertEqual([], validate(dash))
+        self.assertIsInstance(dash["ign"], bool)
+        self.assertIsInstance(dash["run"], bool)
 
     def test_disconnected_state(self):
         self.assertEqual([], validate({"c": False}))
@@ -35,7 +37,8 @@ class SchemaTest(unittest.TestCase):
         self.assertEqual([], validate(dash))
 
     def test_contract_has_expected_keys(self):
-        for key in ("c", "v", "r", "rm", "g", "fuel", "lap", "car"):
+        for key in ("c", "v", "r", "rm", "g", "fuel", "lap", "car",
+                    "ign", "run"):
             self.assertIn(key, DASH_SCHEMA)
 
 
