@@ -136,25 +136,28 @@
 
   /* ---------- voyants et aides ---------- */
   const tells = {};
-  const TELL_ICONS = {
-    FEUX: [
-      ['path', { d: 'M4 7h6v10H4z', fill: 'currentColor' }],
-      ['path', { d: 'M12 8l6 4' }],
-      ['path', { d: 'M12 12l6 3' }],
-      ['path', { d: 'M12 16l6 2' }],
-    ],
-    ROUTE: [
-      ['path', { d: 'M4 7h6v10H4z', fill: 'currentColor' }],
-      ['path', { d: 'M12 9h7' }],
-      ['path', { d: 'M12 12h7' }],
-      ['path', { d: 'M12 15h7' }],
-    ],
-    FREIN: [
-      ['path', { d: 'M4 19h14' }],
-      ['path', { d: 'M7 19l5-9' }],
-      ['circle', { cx: 15, cy: 8, r: 2.6 }],
-    ],
-  };
+  const TELL_ICONS = { FEUX: 'low', ROUTE: 'high', FREIN: 'hb' };
+  function drawTellIcon(kind, parent) {
+    const st = { stroke: 'currentColor', fill: 'none', 'stroke-width': 2,
+                 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
+    if (kind === 'low' || kind === 'high') {
+      S('path', { ...st,
+                  d: 'M-4 -10C8 -10 14 -5 14 0C14 5 8 10 -4 10Z' }, parent);
+      const dy = kind === 'low' ? 3 : 0;
+      [-6, 0, 6].forEach(y0 => S('line', { ...st, x1: -8, y1: y0,
+                                           x2: -19, y2: y0 + dy }, parent));
+    } else if (kind === 'hb') {
+      S('circle', { ...st, r: 10 }, parent);
+      S('path', { ...st,
+                  d: 'M-14 -8A15 15 0 0 0 -14 8M14 -8A15 15 0 0 1 14 8' }, parent);
+      const t = S('text', { 'text-anchor': 'middle',
+                            'dominant-baseline': 'central',
+                            'font-size': 14, 'font-weight': 700,
+                            stroke: 'none' }, parent);
+      t.style.fill = 'currentColor';
+      t.textContent = 'P';
+    }
+  }
   function buildTells() {
     $('tells').textContent = '';
     ['FEUX', 'ROUTE', 'FREIN', 'PIT'].forEach((label, i) => {
@@ -166,13 +169,13 @@
       let icon = null, t = null;
       if (TELL_ICONS[label]) {
         icon = S('g', {
-          transform: 'translate(' + (x + 32) + ', 533)',
+          transform: 'translate(' + (x + 44) + ' 545) scale(1.25)',
           stroke: 'currentColor', 'stroke-width': 2,
           'stroke-linecap': 'round', 'stroke-linejoin': 'round',
           fill: 'none',
         }, g);
         icon.style.color = C.dim;
-        TELL_ICONS[label].forEach(([tag, attrs]) => S(tag, attrs, icon));
+        drawTellIcon(TELL_ICONS[label], icon);
       } else {
         t = S('text', { x: x + 44, y: 550, 'text-anchor': 'middle',
                         'font-size': 13, 'font-weight': 700 }, g);
