@@ -22,4 +22,5 @@ Thumbs.db
 # Sorties locales / captures de test
 *.log
 screenshots/
+tests/screenshots/
 test-results/

@@ -21,32 +21,48 @@ Un tableau de bord de voiture (compteur analogique, vitesse, rapport, shift ligh
 
 ## 3. État actuel (ce qui existe et fonctionne)
 
-Dossier sur le PC : `C:\MapDeck\`
+Dépôt Git : `github.com/redasnkrs/idashboard` (privé). Sur le PC de jeu, on
+clone le dépôt (`C:\MapDeck\` ou ailleurs) puis on lance `lancer.bat` (ou
+`python main.py`).
 
-| Fichier | Rôle |
+Structure après la Phase 1 :
+
+| Chemin | Rôle |
 |---|---|
-| `acevo_bridge.py` | Le pont. Lit la mémoire partagée d'AC Evo, convertit, et sert du HTTP sur le port 25555. Un seul fichier, bibliothèque standard + `acevo-sdk`. |
-| `dashboard.html` | Le tableau de bord principal (compteur à aiguille centrale, style ambre sur noir). Une seule page SVG 1024x600, JavaScript sans dépendance, sans CDN. |
-| `dashboard_twin.html` | Deuxième tableau de bord, design original : deux cadrans ivoire (vitesse à gauche, régime à droite) et une console centrale avec le rapport en grand, les voyants, le carburant et les temps. Mêmes données, mêmes routes. Ses couleurs sont déjà regroupées dans un seul objet `T` (modèle à suivre pour la Phase 2). |
-| `map.ps1`, `close.ps1` | Ouvrent / ferment la fenêtre Chrome `--app` sur le 7" (`--window-position=2560,834 --window-size=1024,600`). `map.ps1 -Url "<url>"` sert aux maps de jeux et au tableau de bord. |
+| `main.py` | Point d'entrée (`--fake`, `--debug`, `--port`). |
+| `core/schema.py` | Contrat de données (`SCHEMA_VERSION = 1`) et validation. |
+| `core/config.py` | Port, fréquences, chemins, résolution des tableaux de bord. |
+| `core/pump.py` | Boucle de lecture 60 Hz et état partagé. |
+| `core/server.py` | Serveur HTTP + flux SSE. |
+| `adapters/acevo.py` | Source AC Evo (mémoire partagée, structures `ctypes`). |
+| `adapters/fake.py` | Fausse source animée pour Mac/Linux/tests. |
+| `adapters/base.py` | Interface commune des sources (`read()`, `ets2()`). |
+| `dashboards/course/acevo-cluster/` | `index.html` + `manifest.json` + `preview.png` (compteur à aiguille centrale). |
+| `acevo_bridge.py` | Ancien nom, conservé en compatibilité (`python acevo_bridge.py`). |
+| `lancer.bat` | Lancement double-clic sous Windows. |
 
-### 3.1 Le pont (`acevo_bridge.py`)
+Fichiers de l'ancienne version encore absents du dépôt : `dashboard_twin.html`,
+`map.ps1`, `close.ps1` (à importer depuis le PC).
 
-- Lit trois régions de mémoire partagée Windows via `acevo.RegionReader` : `acevo_pmf_physics` (1024 o), `acevo_pmf_graphics` (4096 o), `acevo_pmf_static` (2048 o). Chemin `Local\<nom>`.
+### 3.1 Le pont (`core/` + `adapters/`)
+
+- `adapters/acevo.py` lit trois régions de mémoire partagée Windows via `acevo.RegionReader` : `acevo_pmf_physics` (1024 o), `acevo_pmf_graphics` (4096 o), `acevo_pmf_static` (2048 o). Chemin `Local\<nom>`.
 - **Physique** : `acevo.decode_physics()` renvoie un dictionnaire. **Graphique et statique** : structures `ctypes` écrites à la main (`GraphicsEvo`, `StaticEvo`) d'après le layout de la crate Rust `kerb` (`SPageFileGraphicsEvo`). Les sous-structures à taille fixe sont lues comme des blocs d'octets. `sizeof(GraphicsEvo)` = 3128 octets.
-- Boucle de lecture à 60 Hz dans un thread. La page statique n'est relue que toutes les 2 s. Si le jeu est fermé, l'état devient `{"c": false}`.
-- Serveur HTTP (`ThreadingHTTPServer`, HTTP/1.1, connexions persistantes) sur `127.0.0.1` **et** `::1` (voir pièges). Local uniquement.
+- `core/pump.py` fait la boucle de lecture à 60 Hz dans un thread. La page statique n'est relue que toutes les 2 s. Si le jeu est fermé, l'état devient `{"c": false}`.
+- `core/server.py` est le serveur HTTP (`ThreadingHTTPServer`, HTTP/1.1, connexions persistantes) sur `127.0.0.1` **et** `::1` (voir pièges). Local uniquement.
 
 | Route | Contenu |
 |---|---|
-| `/dashboard` | Sert `dashboard.html` (fichier relu à chaque requête, donc pas besoin de relancer le pont pour le modifier). |
-| `/dashboard/<nom>` | Sert `dashboard_<nom>.html` (lettres minuscules, chiffres, `-` et `_` seulement). Exemple : `/dashboard/twin`. Provisoire : la Phase 1 le remplace par le système de dossiers et de `manifest.json`. |
+| `/dashboard` | Sert le tableau de bord par défaut (`course/acevo-cluster/index.html`, relu à chaque requête : pas besoin de relancer le pont pour le modifier). |
+| `/dashboard/<catégorie>/<nom>` | Sert `dashboards/<catégorie>/<nom>/index.html`. `/dashboard/<nom>` marche aussi si le nom est unique. Ajouter un dossier suffit à ajouter un tableau de bord. |
+| `/dashboard/<catégorie>/<nom>/manifest.json` | Métadonnées du tableau de bord (nom, catégorie, jeu, taille, contrats). |
 | `/dashboard?demo` ou `?demo=<secondes>` | Même page avec des données simulées, sans le jeu (marche aussi sur `/dashboard/<nom>`). |
 | `/stream` | Flux SSE, un message `data: <json>` toutes les 1/60 s (sert aussi de heartbeat). |
 | `/api/dash` | Dernier état au format du tableau de bord (JSON). |
+| `/api/schema` | Version et description du contrat de données. |
 | `/api/ets2/telemetry` (et `/`) | Format du « ETS2 Telemetry Server », pour le plugin Macro Deck si besoin. |
 
-### 3.2 Le tableau de bord (`dashboard.html`)
+### 3.2 Le tableau de bord (`dashboards/course/acevo-cluster/index.html`)
 
 - `viewBox="0 0 1024 600"`, `preserveAspectRatio="xMidYMid meet"` : s'adapte à la fenêtre (une fenêtre `--app` 1024x600 a une barre de titre, donc la zone utile est plus basse ; tester aussi à 1024x560).
 - Compteur central (centre 512,324, rayon 260) : graduations générées selon `rm` (RPM max), zone rouge à 89 %, anneau lumineux de 54 segments, aiguille, vitesse en grand, rapport, barres de pédales.
@@ -62,6 +78,8 @@ Dossier sur le PC : `C:\MapDeck\`
 > **Dette connue** : les couleurs sont définies à trois endroits (variables CSS `:root`, objet `C` en JavaScript, et quelques valeurs en dur dans le SVG comme `#15231b`). C'est la première chose à centraliser pour permettre les thèmes (Phase 2).
 
 ## 4. Contrat de données (format `/stream` et `/api/dash`)
+
+Le contrat est déclaré dans `core/schema.py` (`SCHEMA_VERSION = 1`) et exposé par `/api/schema`. Les tests vérifient qu'une source le respecte.
 
 Une valeur inconnue ou incohérente vaut `null` (la page affiche `--`). Les clés sont courtes volontairement (60 messages par seconde).
 
@@ -101,6 +119,11 @@ Le format `/api/ets2/telemetry` est un second format, indépendant, calqué sur 
 - **Clignotants** : le jeu envoie un état **fixe** (pas de battement). Corrigé côté page.
 - Retour global de l'utilisateur le 2026-11-04 : le tableau de bord fonctionne très bien en jeu.
 
+### Vérifié hors jeu (Mac, fausse source)
+- Phase 1 : les 16 tests passent (`python -m unittest discover -s tests -v`) et les captures Playwright 1024x600 / 1024x560 montrent le même design qu'avant.
+- `core/schema.py` valide la sortie de `adapters/fake.py` et l'état déconnecté `{"c": false}`.
+- Reste à confirmer sur le PC Windows avec le jeu : `python main.py` lit la vraie source et sert le tableau de bord depuis la nouvelle structure.
+
 ### Pas vérifié valeur par valeur (layout issu de `kerb`, lecture cohérente mais à confirmer)
 Nom de la voiture et du circuit, temps au tour (dernier, meilleur, delta), position, niveaux TC/ABS, balance de freinage, températures d'eau et d'huile, frein à main, voie des stands. Pour confirmer : lancer `python acevo_bridge.py --debug` et regarder la ligne affichée toutes les 0,5 s.
 
@@ -129,13 +152,13 @@ Chaque phase est utilisable seule. Ne commencer la suivante que si la précéden
 - [x] Pont mémoire partagée → HTTP, tableau de bord compteur, mode démo, flux 60 Hz
 - [x] Clignotants qui battent, écran d'attente, plein écran au toucher
 
-### Phase 1 : mettre de l'ordre (fondations)
-- [ ] Structurer le dépôt (voir arborescence cible ci-dessous) et le mettre sous Git
-- [ ] Extraire le contrat de données dans un module (`core/schema.py`) avec un numéro `schema_version` (ajouter des clés = compatible ; renommer = version majeure)
-- [ ] Séparer le pont en : source AC Evo, serveur HTTP, configuration
-- [ ] Ajouter des tests : fausse source + captures Playwright à 1024x600 et 1024x560
-- [ ] `README.md` d'installation et de lancement (un `.bat` double-cliquable)
-- **Terminé quand** : les tests passent, le tableau de bord se lance depuis la nouvelle structure sans rien changer visuellement.
+### Phase 1 : mettre de l'ordre (fondations) ✅
+- [x] Structurer le dépôt (voir arborescence cible ci-dessous) et le mettre sous Git
+- [x] Extraire le contrat de données dans un module (`core/schema.py`) avec un numéro `schema_version` (ajouter des clés = compatible ; renommer = version majeure)
+- [x] Séparer le pont en : source AC Evo, serveur HTTP, configuration
+- [x] Ajouter des tests : fausse source + captures Playwright à 1024x600 et 1024x560
+- [x] `README.md` d'installation et de lancement (un `.bat` double-cliquable)
+- **Terminé quand** : les tests passent, le tableau de bord se lance depuis la nouvelle structure sans rien changer visuellement. *(vérifié hors jeu ; à confirmer sur le PC)*
 
 ### Phase 2 : thèmes et réglages (sans toucher au HTML)
 - [ ] **Centraliser toutes les couleurs** dans un objet de thème unique (variables CSS + JS lisant les mêmes valeurs), supprimer les valeurs en dur
@@ -184,21 +207,24 @@ Chaque phase est utilisable seule. Ne commencer la suivante que si la précéden
 - Enregistrement de la télémétrie en fichier pour comparer les tours
 - Publication GitHub propre (README avec captures, licence, release)
 
-### Arborescence cible (Phase 1)
+### Arborescence actuelle (après Phase 1)
 
 ```
-projet/
-  core/          schema.py (contrat), server.py, config.py
-  adapters/      acevo.py  (iracing.py plus tard)
-  dashboards/    course/acevo-cluster/  index.html + manifest.json
+idashboard/
+  core/          schema.py (contrat), config.py, pump.py, server.py
+  adapters/      base.py, acevo.py, fake.py  (iracing.py plus tard)
+  dashboards/    course/acevo-cluster/  index.html + manifest.json + preview.png
                  aviation/…  (plus tard : un dossier par catégorie, un sous-dossier par compteur)
-  themes/        ambre-ivoire.json, rouge-sport.json, vert.json
-  launcher/      détection d'écran, ouverture de la fenêtre
-  app/           (Phase 6)
-  tests/
-  ROADMAP.md
+  tests/         test_schema.py, test_server.py, visual_check.py
+  main.py        point d'entrée
+  acevo_bridge.py  compatibilité (ancien nom)
+  lancer.bat
   README.md
+  Mini Deck App Roadmap.md
 ```
+
+Dossiers prévus plus tard : `themes/` (Phase 2), `launcher/` (Phase 3),
+`app/` (Phase 6).
 
 ## 8. Règles pour les IA qui travaillent sur ce projet
 
@@ -213,10 +239,10 @@ projet/
 - Après chaque changement visuel, fais une capture (Playwright) et regarde-la avant de dire que c'est fini.
 
 ### Comment tester sans le jeu (environnement Linux ou sans AC Evo)
-1. Remplacer `Source` par une fausse source qui renvoie `(physics_dict, GraphicsEvo(), StaticEvo())` avec des valeurs choisies.
-2. Lancer `poll_loop(fausse_source, False)` et `serve()` dans des threads, ouvrir `http://127.0.0.1:25555/dashboard` avec Playwright.
-3. Pour juste voir le design : `dashboard.html?demo=<secondes>` (aucun serveur nécessaire).
-4. Vérifier le débit du flux : environ 60 messages `data:` par seconde sur `/stream`.
+1. `python main.py --fake` : utilise `adapters/fake.py`, aucune dépendance Windows, mêmes routes qu'en vrai.
+2. `python -m tests.visual_check` : captures Playwright à 1024x600 et 1024x560 via le serveur.
+3. Pour juste voir le design : `dashboards/course/acevo-cluster/index.html?demo=<secondes>` (aucun serveur nécessaire).
+4. Tests : `python -m unittest discover -s tests -v`. Débit du flux : ~60 messages `data:` par seconde sur `/stream`.
 
 ### Pour démarrer une tâche avec une IA
 > Lis `ROADMAP.md`. On travaille sur **la Phase X, étape Y**. Respecte les règles du §8. Dis-moi ce que tu changes et ce que je dois tester sur mon PC.

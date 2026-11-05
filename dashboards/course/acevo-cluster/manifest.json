@@ -1,0 +1,10 @@
+{
+  "id": "acevo-cluster",
+  "name": "Compteur principal",
+  "category": "course",
+  "game": "Assetto Corsa Evo",
+  "size": [1024, 600],
+  "schema": "course",
+  "schema_version": 1,
+  "preview": "preview.png"
+}
