@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+
+# Node (futur launcher/app)
+node_modules/
+dist/
+build/
+
+# OS / éditeurs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Sorties locales / captures de test
+*.log
+screenshots/
+test-results/
