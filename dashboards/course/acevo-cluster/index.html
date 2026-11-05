@@ -589,8 +589,9 @@
 
   // un toucher sur l'écran bascule le plein écran
   addEventListener('click', () => {
-    if (document.fullscreenElement) document.exitFullscreen();
-    else document.documentElement.requestFullscreen().catch(() => {});
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
   });
 })();
 </script>

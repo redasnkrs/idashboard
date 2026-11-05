@@ -130,48 +130,99 @@
 
   /* ---------- voyants et aides ---------- */
   const tells = {};
+  const TELL_ICONS = {
+    FEUX: [
+      ['path', { d: 'M4 7h6v10H4z', fill: 'currentColor' }],
+      ['path', { d: 'M12 8l6 4' }],
+      ['path', { d: 'M12 12l6 3' }],
+      ['path', { d: 'M12 16l6 2' }],
+    ],
+    ROUTE: [
+      ['path', { d: 'M4 7h6v10H4z', fill: 'currentColor' }],
+      ['path', { d: 'M12 9h7' }],
+      ['path', { d: 'M12 12h7' }],
+      ['path', { d: 'M12 15h7' }],
+    ],
+    FREIN: [
+      ['path', { d: 'M4 19h14' }],
+      ['path', { d: 'M7 19l5-9' }],
+      ['circle', { cx: 15, cy: 8, r: 2.6 }],
+    ],
+  };
   function buildTells() {
     $('tells').textContent = '';
     ['FEUX', 'ROUTE', 'FREIN', 'PIT'].forEach((label, i) => {
+      const x = 62 + i * 96;
       const g = S('g', {}, $('tells'));
-      S('rect', { x: 62 + i * 96, y: 528, width: 88, height: 34, rx: 5,
-                  fill: 'none', stroke: C.dim, 'stroke-width': 1.5 }, g);
-      const t = S('text', { x: 106 + i * 96, y: 550, 'text-anchor': 'middle',
-                            'font-size': 13, 'font-weight': 700 }, g);
-      t.textContent = label;
-      t.style.fill = C.dim;
-      tells[label] = { g, t, on: null };
+      const box = S('rect', { x, y: 528, width: 88, height: 34, rx: 5,
+                              fill: 'none', stroke: C.dim,
+                              'stroke-width': 1.5 }, g);
+      let icon = null, t = null;
+      if (TELL_ICONS[label]) {
+        icon = S('g', {
+          transform: 'translate(' + (x + 32) + ', 533)',
+          stroke: 'currentColor', 'stroke-width': 2,
+          'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+          fill: 'none',
+        }, g);
+        icon.style.color = C.dim;
+        TELL_ICONS[label].forEach(([tag, attrs]) => S(tag, attrs, icon));
+      } else {
+        t = S('text', { x: x + 44, y: 550, 'text-anchor': 'middle',
+                        'font-size': 13, 'font-weight': 700 }, g);
+        t.textContent = label;
+        t.style.fill = C.dim;
+      }
+      tells[label] = { g, box, icon, t, on: null };
     });
   }
   function tell(label, on, color) {
     const item = tells[label];
     if (!item || item.on === on) return;
     item.on = on;
-    const el = item.g.firstChild;
-    el.setAttribute('stroke', on ? color : C.dim);
-    item.t.style.fill = on ? color : C.dim;
+    const c = on ? color : C.dim;
+    item.box.setAttribute('stroke', c);
+    if (item.icon) item.icon.style.color = c;
+    if (item.t) item.t.style.fill = c;
   }
 
   const aids = {};
   function buildAids() {
     $('aids').textContent = '';
     ['TC', 'ABS'].forEach((label, i) => {
+      const x = 790 + i * 100;
       const g = S('g', {}, $('aids'));
-      S('rect', { x: 790 + i * 100, y: 528, width: 92, height: 34, rx: 5,
-                  fill: 'none', stroke: C.dim, 'stroke-width': 1.5 }, g);
-      const t = S('text', { x: 836 + i * 100, y: 550, 'text-anchor': 'middle',
-                            'font-size': 13, 'font-weight': 700 }, g);
-      t.textContent = label;
-      t.style.fill = C.dim;
-      aids[label] = { g, t, on: null };
+      const box = S('rect', { x, y: 528, width: 92, height: 34, rx: 5,
+                              fill: 'none', stroke: C.dim,
+                              'stroke-width': 1.5 }, g);
+      S('line', { x1: x + 40, y1: 536, x2: x + 40, y2: 554,
+                  stroke: C.rule, 'stroke-width': 1 }, g);
+      const name = S('text', { x: x + 20, y: 550, 'text-anchor': 'middle',
+                               'font-size': 11, 'font-weight': 700,
+                               'letter-spacing': '.08em' }, g);
+      name.textContent = label;
+      name.style.fill = C.muted;
+      const value = S('text', { x: x + 66, y: 551, 'text-anchor': 'middle',
+                                'font-size': 18, 'font-weight': 700 }, g);
+      value.textContent = '--';
+      value.style.fill = C.ivory;
+      aids[label] = { g, box, name, value, on: null, v: null };
     });
   }
   function aid(label, on) {
     const item = aids[label];
     if (!item || item.on === on) return;
     item.on = on;
-    item.g.firstChild.setAttribute('stroke', on ? C.amber : C.dim);
-    item.t.style.fill = on ? C.amber : C.dim;
+    const c = on ? C.amber : C.dim;
+    item.box.setAttribute('stroke', c);
+    item.name.style.fill = on ? C.amber : C.muted;
+    item.value.style.fill = on ? C.amber : C.ivory;
+  }
+  function aidValue(label, v) {
+    const item = aids[label];
+    if (!item) return;
+    const txt = v === null || v === undefined ? '--' : String(v);
+    if (item.v !== txt) { item.v = txt; item.value.textContent = txt; }
   }
 
   /* ---------- thème ---------- */
@@ -252,6 +303,7 @@
       gas: accel ? 0.9 : 0, brk: accel ? 0 : 0.4,
       low: true, high: false, L: phase === 1, R: phase === 3, haz: false,
       hb: 0, pit: false, tc: accel && sp < 90, abs: false,
+      tcl: 3, absl: 2,
       up: rpm > 8700, lim: false, pitlane: false,
       car: 'FERRARI 296 GT3',
     };
@@ -308,6 +360,8 @@
       tell('PIT', !!d.pit, C.amber);
       aid('TC', !!d.tc);
       aid('ABS', !!d.abs);
+      aidValue('TC', d.tcl);
+      aidValue('ABS', d.absl);
     }
     requestAnimationFrame(frame);
   }
@@ -316,8 +370,9 @@
   requestAnimationFrame(frame);
 
   addEventListener('click', () => {
-    if (document.fullscreenElement) document.exitFullscreen();
-    else document.documentElement.requestFullscreen().catch(() => {});
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
   });
 })();
 </script>

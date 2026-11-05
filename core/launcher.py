@@ -75,6 +75,7 @@ def _command(url):
         browser,
         "--app=%s" % url,
         "--user-data-dir=%s" % PROFILE_DIR,
+        "--start-fullscreen",
         "--new-window", "--no-first-run", "--no-default-browser-check",
     ]
     # Les coordonnees par defaut sont celles du PC de jeu (Windows). Ailleurs,

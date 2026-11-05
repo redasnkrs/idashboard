@@ -20,6 +20,8 @@ complet et les phases.
    `IDASH_SCREEN_X`, `IDASH_SCREEN_Y`, `IDASH_SCREEN_W`, `IDASH_SCREEN_H`).
    Hors Windows, les coordonnées ne sont appliquées que si `IDASH_SCREEN_X`
    est défini ; sinon Chrome s'ouvre normalement, ou le navigateur par défaut.
+   La fenêtre démarre directement en plein écran (`--start-fullscreen`) ;
+   `F11` ou `Échap` pour en sortir.
 
 ## Développement sans le jeu (Mac / Linux / Windows)
 

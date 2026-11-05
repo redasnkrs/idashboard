@@ -18,6 +18,7 @@ class LauncherTest(unittest.TestCase):
         joined = " ".join(cmd)
         self.assertIn("--app=", joined)
         self.assertIn("--user-data-dir=", joined)
+        self.assertIn("--start-fullscreen", joined)
         self.assertIn("course/acevo-cluster", joined)
         if sys.platform == "win32":
             self.assertIn("--window-position=%d,%d" % (SCREEN["x"],
