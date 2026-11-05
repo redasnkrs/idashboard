@@ -9,12 +9,14 @@ sont deduites des dossiers / du nom du jeu si absentes.
 """
 import json
 
+from core import studio
 from core.config import DASHBOARDS_DIR, DEFAULT_DASHBOARD, dashboard_file
 
 CATEGORY_LABELS = {
     "course": "Course",
     "aviation": "Aviation",
     "divers": "Divers",
+    "custom": "Custom",
 }
 
 MANIFEST_FIELDS = (
@@ -74,6 +76,12 @@ def list_dashboards():
         item = _entry(manifest)
         if item is not None:
             items.append(item)
+    for layout in studio.list_layouts():
+        item = studio.catalog_entry(layout)
+        if item is None:
+            continue
+        item["category_label"] = category_label(item["category"])
+        items.append(item)
     items.sort(key=lambda i: (i["category"], i["game"], i["order"],
                               i["name"].lower()))
     return items

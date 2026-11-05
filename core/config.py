@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DASHBOARDS_DIR = ROOT / "dashboards"
 HOME_FILE = ROOT / "home" / "index.html"
 SETTINGS_FILE = ROOT / "settings" / "index.html"
+STUDIO_DIR = ROOT / "studio"
 
 PORT = int(os.environ.get("IDASH_PORT", "25555"))
 POLL_HZ = int(os.environ.get("IDASH_POLL_HZ", "60"))

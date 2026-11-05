@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>idash · Studio</title>
+<link rel="stylesheet" href="/studio/editor.css">
+</head>
+<body>
+<header id="top">
+  <a class="brand" href="/">idash<span>.</span> <em>studio</em></a>
+  <input id="name" class="name" type="text" placeholder="Dashboard name" maxlength="80">
+  <select id="category" class="sel" title="Category">
+    <option value="custom">Custom</option>
+    <option value="course">Course</option>
+    <option value="aviation">Aviation</option>
+    <option value="divers">Divers</option>
+  </select>
+  <select id="themeSel" class="sel" title="Preview theme"></select>
+  <label class="toggle"><input type="checkbox" id="live"> Live</label>
+  <div class="grow"></div>
+  <button id="undo" class="icon" title="Undo">↶</button>
+  <button id="redo" class="icon" title="Redo">↷</button>
+  <button id="importBtn" class="ghost">Import</button>
+  <button id="exportBtn" class="ghost">Export</button>
+  <button id="deleteBtn" class="ghost danger">Delete</button>
+  <button id="duplicateBtn" class="ghost">Duplicate</button>
+  <button id="saveBtn" class="primary">Save</button>
+  <button id="launchBtn" class="primary">Launch on 7"</button>
+</header>
+
+<div id="app">
+  <aside id="palette">
+    <h2>Widgets</h2>
+    <div id="paletteButtons" class="palette-grid"></div>
+    <h2>Icons</h2>
+    <input id="iconSearch" class="search" type="search" placeholder="Search icons…">
+    <div class="tabs">
+      <button id="tabBuiltin" class="on">Built-in</button>
+      <button id="tabCustom">My icons</button>
+    </div>
+    <div id="iconGallery" class="icon-gallery"></div>
+    <div id="uploadRow" class="upload-row">
+      <input type="file" id="iconFile" accept=".svg,.png,.jpg,.jpeg,.webp">
+      <button id="uploadBtn" class="ghost">Upload icon</button>
+    </div>
+    <p class="hint">Click a widget to add it. Click an icon to set it on the selected icon widget (or add one).</p>
+  </aside>
+
+  <main id="stage">
+    <div id="canvasWrap">
+      <svg id="canvas" viewBox="0 0 1024 600" preserveAspectRatio="xMidYMid meet"
+           xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="grid"></div>
+      <div id="overlay"></div>
+    </div>
+    <div id="canvasHint">1024 × 600 · grid <span id="gridLabel">16</span>px</div>
+  </main>
+
+  <aside id="inspector">
+    <h2>Layout</h2>
+    <div id="layoutProps"></div>
+    <h2>Selected widget</h2>
+    <div id="props"><p class="empty">Select a widget on the canvas.</p></div>
+    <h2>Layers</h2>
+    <div id="layers" class="layers"></div>
+  </aside>
+</div>
+
+<div id="toast"></div>
+<input type="file" id="importFile" accept=".json" hidden>
+<script src="/studio/icons.js"></script>
+<script src="/studio/runtime.js"></script>
+<script src="/studio/editor.js"></script>
+</body>
+</html>

@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 from adapters.fake import FakeSource
-from core import game, media, pump, themes
+from core import game, media, pump, studio, themes
 from core.schema import validate
 from core.server import serve
 
@@ -20,6 +20,12 @@ class ServerTest(unittest.TestCase):
         themes.STATE_FILE = Path(cls.tmp.name) / "active.json"
         cls.old_game = game.GAME_FILE
         game.GAME_FILE = Path(cls.tmp.name) / "game.json"
+        cls.old_studio = (studio.LAYOUTS_DIR, studio.PREVIEWS_DIR,
+                          studio.ICONS_DIR)
+        base = Path(cls.tmp.name) / "custom"
+        studio.LAYOUTS_DIR = base / "layouts"
+        studio.PREVIEWS_DIR = base / "previews"
+        studio.ICONS_DIR = base / "icons"
         threading.Thread(target=pump.poll_loop, args=(FakeSource(), False),
                          daemon=True).start()
         cls.server = serve(0)
@@ -32,6 +38,8 @@ class ServerTest(unittest.TestCase):
         cls.server.server_close()
         themes.STATE_FILE = cls.old_state
         game.GAME_FILE = cls.old_game
+        (studio.LAYOUTS_DIR, studio.PREVIEWS_DIR,
+         studio.ICONS_DIR) = cls.old_studio
         cls.tmp.cleanup()
 
     def get(self, path, timeout=5):
@@ -49,6 +57,15 @@ class ServerTest(unittest.TestCase):
                                           timeout=timeout)
         conn.request("POST", path, body=body,
                      headers={"Content-Type": "application/json"})
+        resp = conn.getresponse()
+        data = resp.read()
+        conn.close()
+        return resp.status, data
+
+    def delete(self, path, timeout=5):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port,
+                                          timeout=timeout)
+        conn.request("DELETE", path)
         resp = conn.getresponse()
         data = resp.read()
         conn.close()
@@ -195,6 +212,79 @@ class ServerTest(unittest.TestCase):
         finally:
             media.art = old
         self.assertEqual(404, status)
+
+    def test_studio_page(self):
+        status, ctype, body = self.get("/studio")
+        self.assertEqual(200, status)
+        self.assertIn("text/html", ctype)
+        self.assertIn(b"idash", body)
+        self.assertIn(b"Studio", body)
+
+    def test_studio_assets(self):
+        status, ctype, body = self.get("/studio/runtime.js")
+        self.assertEqual(200, status)
+        self.assertIn("javascript", ctype)
+        self.assertIn(b"IDashStudio", body)
+
+    def test_studio_layout_flow(self):
+        payload = {
+            "name": "Server Studio", "category": "custom",
+            "background": "ink", "canvas": {"grid": 16},
+            "widgets": [
+                {"type": "value", "x": 40, "y": 40, "w": 220, "h": 90,
+                 "label": "SPEED", "field": "v", "format": "int",
+                 "unit": "auto", "size": 64},
+            ],
+            "preview_svg": ('<svg xmlns="http://www.w3.org/2000/svg">'
+                            '<rect width="10" height="10"/></svg>'),
+        }
+        status, body = self.post("/api/layouts", payload)
+        self.assertEqual(200, status)
+        data = json.loads(body)
+        self.assertTrue(data["ok"])
+        layout_id = data["layout"]["id"]
+        self.assertEqual("server-studio", layout_id)
+        status, _, raw = self.get("/api/layouts/" + layout_id)
+        self.assertEqual(200, status)
+        self.assertEqual("Server Studio", json.loads(raw)["layout"]["name"])
+        status, _, raw = self.get("/api/dashboards")
+        specs = [d["spec"] for d in json.loads(raw)["dashboards"]]
+        self.assertIn("custom/server-studio", specs)
+        status, _, page = self.get("/dashboard/custom/" + layout_id)
+        self.assertEqual(200, status)
+        self.assertIn(b"window.__IDASH__", page)
+        self.assertIn(("custom/" + layout_id).encode(), page)
+        status, ctype, preview = self.get(
+            "/custom/previews/" + layout_id + ".svg")
+        self.assertEqual(200, status)
+        self.assertIn("image/svg+xml", ctype)
+        self.assertEqual(b"<svg", preview[:4])
+        status, _ = self.delete("/api/layouts/" + layout_id)
+        self.assertEqual(200, status)
+        status, _, _ = self.get("/dashboard/custom/" + layout_id)
+        self.assertEqual(404, status)
+
+    def test_studio_layout_rejects_bad_payload(self):
+        status, body = self.post("/api/layouts", {"name": ""})
+        self.assertEqual(400, status)
+        self.assertFalse(json.loads(body)["ok"])
+
+    def test_studio_icons_flow(self):
+        import base64
+        svg = b'<svg xmlns="http://www.w3.org/2000/svg"><circle cx="6" cy="6" r="5"/></svg>'
+        data = "data:image/svg+xml;base64," + base64.b64encode(svg).decode()
+        status, body = self.post("/api/icons", {"name": "Dot", "data": data})
+        self.assertEqual(200, status)
+        icon = json.loads(body)["icon"]
+        status, _, raw = self.get("/api/icons")
+        self.assertEqual(200, status)
+        self.assertIn(icon["id"], [i["id"] for i in json.loads(raw)["icons"]])
+        status, ctype, body = self.get("/custom/icons/" + icon["id"])
+        self.assertEqual(200, status)
+        self.assertIn("image/svg+xml", ctype)
+        self.assertIn(b"circle", body)
+        status, _ = self.delete("/api/icons/" + icon["id"])
+        self.assertEqual(200, status)
 
     def test_dashboard_injects_meta(self):
         status, _, body = self.get("/dashboard/course/acevo-minimal")

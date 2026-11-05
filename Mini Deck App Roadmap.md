@@ -40,6 +40,9 @@ Structure après la Phase 2 et le début de la Phase 3 :
 | `core/nav_snippet.py` | Script injecté dans les compteurs : balayage tactile / flèches entre compteurs. |
 | `core/game.py` | Lancement d'AC Evo : chemin `game.json`, détection Steam, repli protocole Steam. |
 | `core/media.py` + `core/media_smtc.ps1` | Média Windows (SMTC) : Cider prioritaire, pochette, timeline, contrôles. |
+| `core/studio.py` | Stockage/validation des layouts et icônes personnalisés (`custom/`). |
+| `studio/` | Éditeur `/studio`, runtime par widgets, bibliothèque d'icônes. |
+| `custom/` | Layouts, aperçus et icônes de l'utilisateur (hors git). |
 | `game.json` | Chemin de l'exécutable du jeu (réglage local, hors git). |
 | `adapters/acevo.py` | Source AC Evo (mémoire partagée, structures `ctypes`). |
 | `adapters/fake.py` | Fausse source animée pour Mac/Linux/tests. |
@@ -88,6 +91,13 @@ est utilisé sur le PC.
 | `/api/media` | `GET` : média Windows en cours (Cider prioritaire). |
 | `/api/media/art` | Pochette du média en cache. |
 | `/api/media/control` | `POST` : précédent / lecture-pause / suivant. |
+| `/studio` | Éditeur de compteurs personnalisés (canvas, grille, widgets, icônes). |
+| `/dashboard/custom/<id>` | Compteur perso, rendu par le runtime commun. |
+| `/custom/previews/<id>.svg` | Aperçu statique d'un compteur perso. |
+| `/custom/icons/<fichier>` | Icône perso uploadée. |
+| `/api/layouts` | `GET` liste / `POST` création-mise à jour des layouts. |
+| `/api/layouts/<id>` | `GET` layout complet / `DELETE` suppression. |
+| `/api/icons` | `GET`/`POST` icônes perso. |
 | `/api/ets2/telemetry` | Format du « ETS2 Telemetry Server », pour le plugin Macro Deck si besoin. |
 
 ### 3.2 Le tableau de bord (`dashboards/course/acevo-cluster/index.html`)
@@ -115,6 +125,7 @@ est utilisé sur le PC.
 - **Lancement du jeu** : `core/game.py` + routes `/api/game`, `/api/game/detect`, `/api/game/launch`. Le chemin de l'exe est dans `game.json` (hors git) ; détection via le registre Steam et `libraryfolders.vdf` ; si vide, lancement par `steam://rungameid/3058630`. Bouton « Lancer AC Evo » sur l'accueil et section « Jeu » dans `/settings` (chemin, détecter, enregistrer, lancer).
 - **Compteur Cockpit** (`dashboards/course/acevo-cockpit/`) : 3 colonnes, labels anglais. Gauche : track map stylisée (tracé générique pour l'instant ; vraie forme prévue en V2) avec point réel (`npos`), circuit/config, position, lap/best/last/delta. Centre : anneau de régime, vitesse, rapport + bande R/N/1…8, mode, temps au tour, shift lights, badge position. Droite : média Cider via SMTC (pochette, titre, artiste, album, progression, boutons tactiles), date/heure, temp extérieure, énergie et moteur. Veille/réveil contact et swipe automatiques.
 - **Média Windows** : `core/media.py` démarre un poller PowerShell (`media_smtc.ps1`, WinRT) ; Cider prioritaire, sinon session courante. Routes `/api/media`, `/api/media/art`, `/api/media/control` (playpause / next / prev). Si la timeline manque, la barre est masquée. Sur Mac, le compteur utilise un média de démo.
+- **Studio** : `/studio` (éditeur) + `/dashboard/custom/<id>` (runtime). Layouts JSON dans `custom/layouts/`, aperçus SVG dans `custom/previews/`, icônes uploadées dans `custom/icons/` (tout hors git). Canvas 1024×600 avec grille, drag/resize, propriétés par widget, galerie d'icônes (maison + Lucide ISC + uploads), thème de prévisualisation, import/export, sauvegarde/duplication/suppression, aperçu SVG généré et lancement sur le 7". Les compteurs perso apparaissent automatiquement dans l'accueil, les réglages, le swipe et le lanceur. Runtime commun `studio/runtime.js` : thème/unités, SSE, veille/réveil contact, média Cider, track map (`npos`).
 - **Portée thème compteur** : en plus de global / jeu / voiture, `dashboards` s'applique à un `spec` précis. Résolution : **compteur > voiture > jeu > global**. La page de réglages permet de choisir la portée « Compteur » et de réinitialiser la portée courante.
 - **Compteur minimal** (`dashboards/course/acevo-minimal/`) : vitesse, rapport, barre de régime, 27 shift lights, voyants (icônes feux / route / frein, texte PIT) et aides (TC/ABS avec leur niveau). Même contrat de données, même thème, mêmes unités, blocs `telltales` / `aids` / `shiftlights`. Il gère aussi la veille grise et le réveil (barre de régime + LEDs + voyants) via `?demo&ign=off` / `?demo&ign=wake`.
 
@@ -166,7 +177,7 @@ Le format `/api/ets2/telemetry` est un second format, indépendant, calqué sur 
 - Phase 1 : les 16 tests passent (`python -m unittest discover -s tests -v`) et les captures Playwright 1024x600 / 1024x560 montrent le même design qu'avant.
 - `core/schema.py` valide la sortie de `adapters/fake.py` et l'état déconnecté `{"c": false}`.
 - Phase 2 : 27 tests passent. Captures Playwright des 3 thèmes à 1024x600 et 1024x560. Une couleur changée dans `/settings` est enregistrée et appliquée dans l'aperçu sans rechargement (vérifié via Playwright, aucune erreur JS). Unités mph/°F et masquage de blocs vérifiés.
-- Phase 3 (partiel) : 57 tests passent (catalogue, accueil, injection `__IDASH__`, assets, redirection `/dashboard`, reset de portée, rejet d'un compteur inconnu, lanceur, réglages et lancement du jeu, API média). Captures Playwright des 3 thèmes pour les 3 compteurs, de l'accueil et des réglages, plus les états `ign=off` (veille grise) et `ign=wake` (test des voyants + balayage) ; aucune erreur JS. Le balayage tactile gauche/droite est vérifié via Playwright (cluster ↔ minimal). Les `preview.png` sont générés depuis les pages réelles. Lancement Chrome/Steam réel et média Cider **à confirmer sur le PC**.
+- Phase 3 (partiel) : 68 tests passent (catalogue, accueil, injection `__IDASH__`, assets, redirection `/dashboard`, reset de portée, rejet d'un compteur inconnu, lanceur, réglages et lancement du jeu, API média). Captures Playwright des 3 thèmes pour les 3 compteurs, de l'accueil et des réglages, plus les états `ign=off` (veille grise) et `ign=wake` (test des voyants + balayage) ; aucune erreur JS. Le Studio et un compteur perso sont aussi capturés (éditeur + runtime + aperçu généré). Le balayage tactile gauche/droite est vérifié via Playwright (cluster ↔ minimal). Les `preview.png` sont générés depuis les pages réelles. Lancement Chrome/Steam réel, média Cider et édition Studio sur le PC **à confirmer**.
 - Cockpit : les 3 thèmes, la track map (`npos`), la veille/réveil et le média de démo sont vérifiés sur Mac. Le vrai SMTC (pochette Cider, timeline, contrôles) n'est pas testable sur Mac ; à valider sur le PC.
 - Contact : la veille et le réveil sont vérifiés en démo Playwright sur les deux compteurs. La valeur réelle `ign` (`is_ignition_on`) reste **à confirmer sur le PC** avec `python main.py --debug`.
 
@@ -238,6 +249,7 @@ Chaque phase est utilisable seule. Ne commencer la suivante que si la précéden
 
 ### Phase 5 : contenu des tableaux de bord
 - [x] Troisième compteur « Cockpit » : track map (`npos`), média Cider via SMTC, contrôles tactiles, labels anglais
+- [x] Studio de compteurs personnalisés : canvas/grille, drag/resize, widgets, galerie d'icônes, uploads, thème, aperçu SVG, import/export, lancement 7"
 - [ ] Pneus (température, pression, usure) et températures de freins
 - [ ] Écarts avec la voiture devant et derrière
 - [ ] Secteurs avec couleurs violet / vert / jaune
@@ -261,14 +273,15 @@ Chaque phase est utilisable seule. Ne commencer la suivante que si la précéden
 - Enregistrement de la télémétrie en fichier pour comparer les tours
 - Publication GitHub propre (README avec captures, licence, release)
 
-### Arborescence actuelle (après Phase 2 + début Phase 3)
+### Arborescence actuelle (après Phase 5)
 
 ```
 idashboard/
   core/          schema.py (contrat), config.py, pump.py, server.py,
                  themes.py (palettes, résolution, diffusion), catalog.py,
                  launcher.py (Chrome --app sur le 7"), nav_snippet.py,
-                 game.py (lancement AC Evo), media.py + media_smtc.ps1
+                 game.py (lancement AC Evo), media.py + media_smtc.ps1,
+                 studio.py (layouts/icônes perso)
   game.json      chemin du jeu (hors git)
   adapters/      base.py, acevo.py, fake.py  (iracing.py plus tard)
   dashboards/    course/acevo-cluster/  index.html + manifest.json + preview.png
@@ -279,8 +292,10 @@ idashboard/
   settings/      index.html (réglages + aperçu live)
   themes/        ambre-ivoire.json, rouge-sport.json, vert.json
                  active.json (choix utilisateur, hors git)
+  studio/        index.html + editor.js/css, runtime.js, icons.js
+  custom/        layouts/, previews/, icons/ (données utilisateur, hors git)
   tests/         test_schema.py, test_server.py, test_themes.py, test_game.py,
-                 test_media.py, test_launcher.py, visual_check.py
+                 test_media.py, test_studio.py, test_launcher.py, visual_check.py
   main.py        point d'entrée
   acevo_bridge.py  compatibilité (ancien nom)
   lancer.bat
@@ -304,7 +319,7 @@ Dossiers prévus plus tard : `app/` (Phase 6). Le lanceur vit dans `core/launche
 
 ### Comment tester sans le jeu (environnement Linux ou sans AC Evo)
 1. `python main.py --fake` : utilise `adapters/fake.py`, aucune dépendance Windows, mêmes routes qu'en vrai.
-2. `python -m tests.visual_check` : captures Playwright des 3 compteurs (3 thèmes, 1024x600 et 1024x560), de l'accueil et des réglages, et régénération des `preview.png` via le serveur.
+2. `python -m tests.visual_check` : captures Playwright des 3 compteurs (3 thèmes, 1024x600 et 1024x560), de l'accueil, des réglages, du Studio et d'un compteur perso, et régénération des `preview.png` via le serveur.
 3. Pour juste voir le design : `dashboards/course/acevo-cluster/index.html?demo=<secondes>` ou `dashboards/course/acevo-minimal/index.html?demo` (aucun serveur nécessaire).
 4. Tests : `python -m unittest discover -s tests -v`. Débit du flux : ~60 messages `data:` par seconde sur `/stream`.
 

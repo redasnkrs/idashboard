@@ -23,12 +23,12 @@ import socket
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
-from core import catalog, game, launcher, media, pump, themes
+from core import catalog, game, launcher, media, pump, studio, themes
 from core.config import (DEFAULT_DASHBOARD, HOME_FILE, PORT, SETTINGS_FILE,
-                         STREAM_HZ, dashboard_asset, dashboard_file,
-                         dashboard_manifest, spec_for_path)
+                         STREAM_HZ, STUDIO_DIR, dashboard_asset,
+                         dashboard_file, dashboard_manifest, spec_for_path)
 from core.nav_snippet import NAV_HTML
 from core.schema import schema_info
 
@@ -36,6 +36,7 @@ MIME = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
     ".svg": "image/svg+xml",
     ".css": "text/css; charset=utf-8",
     ".js": "application/javascript; charset=utf-8",
@@ -43,25 +44,33 @@ MIME = {
     ".html": "text/html; charset=utf-8",
 }
 
+SVG_CSP = {
+    "Content-Security-Policy":
+        "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'",
+}
+
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"  # connexions persistantes
 
-    def _send(self, body, ctype, code=200):
+    def _send(self, body, ctype, code=200, extra=None):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Cache-Control", "no-store")
+        for key, value in (extra or {}).items():
+            self.send_header(key, value)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
-    def _file(self, path, ctype):
+    def _file(self, path, ctype, extra=None):
         try:
             with open(path, "rb") as f:
-                self._send(f.read(), ctype)
+                self._send(f.read(), ctype, extra=extra)
         except OSError:
-            self._send(b"Fichier introuvable", "text/plain; charset=utf-8", 404)
+            self._send(b"Fichier introuvable", "text/plain; charset=utf-8",
+                       404)
 
     def _redirect(self, location, code=302):
         self.send_response(code)
@@ -74,7 +83,7 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = 0
-        if length <= 0 or length > 65536:
+        if length <= 0 or length > 4 * 1024 * 1024:
             raise ValueError("corps JSON manquant ou trop grand")
         data = json.loads(self.rfile.read(length).decode("utf-8"))
         if not isinstance(data, dict):
@@ -118,6 +127,30 @@ class Handler(BaseHTTPRequestHandler):
             }).encode(), "application/json")
         elif path == "/api/schema":
             self._send(json.dumps(schema_info()).encode(), "application/json")
+        elif path == "/api/layouts":
+            items = []
+            for layout in studio.list_layouts():
+                item = studio.catalog_entry(layout)
+                if item:
+                    item["category_label"] = catalog.category_label(
+                        item["category"])
+                    items.append(item)
+            self._send(json.dumps({"layouts": items}).encode(),
+                       "application/json")
+        elif path.startswith("/api/layouts/"):
+            self._get_layout(path[len("/api/layouts/"):])
+        elif path == "/api/icons":
+            self._send(json.dumps({"icons": studio.list_icons()}).encode(),
+                       "application/json")
+        elif path == "/studio":
+            self._file(STUDIO_DIR / "index.html",
+                       "text/html; charset=utf-8")
+        elif path.startswith("/studio/"):
+            self._studio_asset(path[len("/studio/"):])
+        elif path.startswith("/custom/previews/"):
+            self._custom_preview(path[len("/custom/previews/"):])
+        elif path.startswith("/custom/icons/"):
+            self._custom_icon(path[len("/custom/icons/"):])
         elif path == "/api/themes":
             state = themes.load_state()
             info = {
@@ -143,6 +176,8 @@ class Handler(BaseHTTPRequestHandler):
             if query:
                 location += "?" + query
             self._redirect(location)
+        elif path.startswith("/dashboard/custom/"):
+            self._custom_dashboard(path[len("/dashboard/custom/"):])
         elif path.startswith("/dashboard/"):
             self._dashboard(path)
         elif path == "/stream":
@@ -166,6 +201,19 @@ class Handler(BaseHTTPRequestHandler):
             self._launch_game()
         elif path == "/api/media/control":
             self._media_control()
+        elif path == "/api/layouts":
+            self._save_layout()
+        elif path == "/api/icons":
+            self._save_icon()
+        else:
+            self.send_error(405)
+
+    def do_DELETE(self):
+        path = self.path.split("?")[0].rstrip("/")
+        if path.startswith("/api/layouts/"):
+            self._delete_layout(path[len("/api/layouts/"):])
+        elif path.startswith("/api/icons/"):
+            self._delete_icon(path[len("/api/icons/"):])
         else:
             self.send_error(405)
 
@@ -215,6 +263,107 @@ class Handler(BaseHTTPRequestHandler):
         html = (html[:idx] + snippet + html[idx:]) if idx >= 0 else \
             snippet + html
         self._send(html.encode("utf-8"), "text/html; charset=utf-8")
+
+    def _studio_asset(self, name):
+        allowed = {"index.html", "runtime.html", "runtime.js", "editor.js",
+                   "editor.css", "icons.js"}
+        name = unquote(name)
+        if name not in allowed:
+            self.send_error(404)
+            return
+        path = STUDIO_DIR / name
+        self._file(path, MIME.get(path.suffix.lower(),
+                                  "application/octet-stream"))
+
+    def _custom_preview(self, name):
+        name = unquote(name)
+        if "/" in name or not name.endswith(".svg"):
+            self.send_error(404)
+            return
+        path = studio.preview_path(name[:-4])
+        if path is None:
+            self.send_error(404)
+        else:
+            self._file(path, "image/svg+xml", SVG_CSP)
+
+    def _custom_icon(self, name):
+        name = unquote(name)
+        path = studio.icon_path(name)
+        if path is None:
+            self.send_error(404)
+            return
+        ctype = MIME.get(path.suffix.lower(), "application/octet-stream")
+        self._file(path, ctype, SVG_CSP if path.suffix.lower() == ".svg"
+                   else None)
+
+    def _custom_dashboard(self, layout_id):
+        layout_id = unquote(layout_id).strip().lower()
+        item = catalog.find("custom/" + layout_id)
+        if item is None:
+            self.send_error(404)
+            return
+        try:
+            html = (STUDIO_DIR / "runtime.html").read_text(encoding="utf-8")
+        except OSError:
+            self.send_error(404)
+            return
+        meta = {key: item.get(key) for key in (
+            "spec", "id", "name", "category", "category_label", "game",
+            "game_id", "schema", "schema_version", "size")}
+        meta["custom"] = True
+        snippet = "<script>window.__IDASH__=%s;</script>%s" % (
+            json.dumps(meta, ensure_ascii=False).replace("</", "<\\/"),
+            NAV_HTML)
+        idx = html.find("</head>")
+        html = (html[:idx] + snippet + html[idx:]) if idx >= 0 else \
+            snippet + html
+        self._send(html.encode("utf-8"), "text/html; charset=utf-8")
+
+    def _get_layout(self, layout_id):
+        layout = studio.load_layout(unquote(layout_id))
+        if layout is None:
+            self.send_error(404)
+            return
+        meta = studio.catalog_entry(layout)
+        if meta:
+            meta["category_label"] = catalog.category_label(
+                meta["category"])
+        self._send(json.dumps({"layout": layout, "meta": meta}).encode(),
+                   "application/json")
+
+    def _save_layout(self):
+        try:
+            layout = studio.save_layout(self._read_json())
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
+                       "application/json", 400)
+            return
+        meta = studio.catalog_entry(layout)
+        if meta:
+            meta["category_label"] = catalog.category_label(
+                meta["category"])
+        self._send(json.dumps({"ok": True, "layout": layout,
+                               "meta": meta}).encode(), "application/json")
+
+    def _delete_layout(self, layout_id):
+        ok = studio.delete_layout(unquote(layout_id))
+        self._send(json.dumps({"ok": ok}).encode(), "application/json",
+                   200 if ok else 404)
+
+    def _save_icon(self):
+        try:
+            icon = studio.save_icon(self._read_json())
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
+                       "application/json", 400)
+            return
+        self._send(json.dumps({"ok": True, "icon": icon}).encode(),
+                   "application/json")
+
+    def _delete_icon(self, name):
+        ok = studio.delete_icon(unquote(name))
+        self._send(json.dumps({"ok": ok}).encode(), "application/json",
+                   200 if ok else 404)
 
     def _save_theme(self):
         try:

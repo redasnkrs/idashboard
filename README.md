@@ -69,6 +69,25 @@ la timeline, la barre de progression et les temps sont masqués.
 Sur Mac, le panneau média utilise des données de démo (`?demo`) ; le test réel
 se fait sur le PC Windows.
 
+## Studio (compteurs personnalisés)
+
+Ouvre `http://localhost:25555/studio` (bouton **Studio** sur l'accueil).
+
+- Canvas **1024×600** avec grille, sélection, déplacement, redimensionnement.
+- Widgets : valeur, texte, jauge, barre, icône, image, forme, track map,
+  média Cider, horloge, shift lights, bande de rapports.
+- Galerie d'icônes intégrée (dont les icônes maison) + **upload SVG/PNG**.
+- Couleurs par rôles du thème ou hex, champ/format/unité par widget.
+- Sauvegarde, duplication, suppression, import/export JSON, aperçu généré,
+  thème de prévisualisation et bouton « Launch on 7" ».
+- Un compteur perso apparaît automatiquement dans l'accueil, les réglages,
+  le swipe et le catalogue ; il utilise le thème global/compteur existant.
+
+Les fichiers générés sont dans `custom/` (ignoré par git) :
+`custom/layouts/`, `custom/previews/`, `custom/icons/`. Le runtime commun est
+dans `studio/runtime.js` ; la bibliothèque d'icônes Lucide est sous licence ISC
+(voir `studio/ICONS_LICENSE.txt`).
+
 ## Routes
 
 | Route | Contenu |
@@ -80,6 +99,13 @@ se fait sur le PC Windows.
 | `/dashboard/<catégorie>/<nom>/preview.png` | aperçu statique du compteur |
 | `/dashboard/<catégorie>/<nom>/manifest.json` | métadonnées du compteur |
 | `/settings` | réglages (couleurs, unités, blocs) avec aperçu live |
+| `/studio` | éditeur de compteurs personnalisés |
+| `/dashboard/custom/<id>` | compteur créé dans le Studio |
+| `/custom/previews/<id>.svg` | aperçu d'un compteur perso |
+| `/custom/icons/<fichier>` | icône perso uploadée |
+| `/api/layouts` | liste (GET) / création-mise à jour (POST) des layouts |
+| `/api/layouts/<id>` | layout complet (GET) / suppression (DELETE) |
+| `/api/icons` | icônes perso (GET/POST) |
 | `/stream` | flux SSE à 60 Hz |
 | `/api/dash` | dernier état (contrat commun) |
 | `/api/dashboards` | catalogue JSON des compteurs + catégories |
@@ -115,7 +141,10 @@ core/          schema.py (contrat), config.py, pump.py (lecture), server.py,
                themes.py (palettes, résolution, diffusion), catalog.py
                (catalogue des compteurs), launcher.py (Chrome sur le 7"),
                nav_snippet.py (balayage tactile), game.py (lancement AC Evo),
-               media.py + media_smtc.ps1 (média Windows / Cider)
+               media.py + media_smtc.ps1 (média Windows / Cider),
+               studio.py (layouts + icônes personnalisés)
+studio/        index.html + editor.js/css, runtime.js, icons.js (éditeur/runtime)
+custom/        layouts/, previews/, icons/  (données utilisateur, hors git)
 adapters/      acevo.py (source du jeu), fake.py (tests), base.py (interface)
 dashboards/    course/acevo-cluster/  compteur complet
                course/acevo-minimal/  compteur minimal
@@ -130,13 +159,14 @@ acevo_bridge.py  ancien nom (compatibilité)
 
 Ajouter un tableau de bord = ajouter un dossier `dashboards/<catégorie>/<nom>/`
 avec `index.html`, `manifest.json` et `preview.png`. Il apparaît tout seul sur
-l'accueil et dans les réglages. Ajouter un jeu = écrire un adaptateur qui
-respecte `adapters/base.py`.
+l'accueil et dans les réglages. Pour un compteur personnalisé, passe par
+`/studio` (widgets, grille, icônes) : il sera aussi ajouté automatiquement.
+Ajouter un jeu = écrire un adaptateur qui respecte `adapters/base.py`.
 
 ## Tests
 
 ```
 python -m unittest discover -s tests -v
 python -m tests.visual_check     # captures 1024x600/560, accueil, réglages,
-                                 # et génération des preview.png
+                                 # studio + compteur perso, preview.png
 ```
