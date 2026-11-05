@@ -55,6 +55,20 @@ Depuis l'accueil (bouton « Lancer AC Evo ») ou la section « Jeu » de
 Le lancement réel du jeu est disponible sous Windows ; sur Mac/Linux, la
 logique est testable avec un exécutable quelconque mais le jeu n'existe pas.
 
+## Média (Cider) sur le compteur Cockpit
+
+Le compteur `/dashboard/course/acevo-cockpit` affiche le média en cours à
+droite : pochette, titre, artiste, album, progression et boutons tactiles
+(précédent / lecture-pause / suivant).
+
+La source est la **session média Windows (SMTC)**, la même que le bloc
+Macro Deck « System Media - Cider » : pas de token Cider, pas de configuration.
+Cider est prioritaire, sinon la session média courante. Si Cider ne fournit pas
+la timeline, la barre de progression et les temps sont masqués.
+
+Sur Mac, le panneau média utilise des données de démo (`?demo`) ; le test réel
+se fait sur le PC Windows.
+
 ## Routes
 
 | Route | Contenu |
@@ -78,6 +92,9 @@ logique est testable avec un exécutable quelconque mais le jeu n'existe pas.
 | `/api/game` | état du lancement + chemin du jeu (GET), enregistrement (POST) |
 | `/api/game/detect` | détecte l'installation Steam d'AC Evo (POST) |
 | `/api/game/launch` | lance Assetto Corsa Evo (POST) |
+| `/api/media` | média Windows en cours (Cider prioritaire) |
+| `/api/media/art` | pochette en cache |
+| `/api/media/control` | précédent / lecture-pause / suivant (POST) |
 | `/api/ets2/telemetry` | format « ETS2 Telemetry Server » (Macro Deck) |
 
 ## Thèmes et réglages
@@ -97,10 +114,12 @@ peuvent être définis globalement, par jeu, par voiture ou par compteur
 core/          schema.py (contrat), config.py, pump.py (lecture), server.py,
                themes.py (palettes, résolution, diffusion), catalog.py
                (catalogue des compteurs), launcher.py (Chrome sur le 7"),
-               nav_snippet.py (balayage tactile), game.py (lancement AC Evo)
+               nav_snippet.py (balayage tactile), game.py (lancement AC Evo),
+               media.py + media_smtc.ps1 (média Windows / Cider)
 adapters/      acevo.py (source du jeu), fake.py (tests), base.py (interface)
 dashboards/    course/acevo-cluster/  compteur complet
                course/acevo-minimal/  compteur minimal
+               course/acevo-cockpit/  cockpit 3 colonnes + média
 home/          index.html (accueil / catalogue)
 settings/      index.html (page de réglages)
 themes/        ambre-ivoire.json, rouge-sport.json, vert.json

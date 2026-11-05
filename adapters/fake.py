@@ -46,8 +46,10 @@ class FakeSource(Source):
             "op": 4.2, "boost": 0.9 if accel else 0.1,
             "lap": int((t * 1000) % 88500), "last": 89123, "best": 88342,
             "delta": int(math.sin(t / 3) * 420), "valid": True,
-            "pos": 3, "nd": 12, "tcl": 3, "absl": 2, "bb": 56.5,
+            "pos": 3, "nd": 12, "npos": (t / 90.0) % 1.0,
+            "tcl": 3, "absl": 2, "bb": 56.5,
             "car": "FERRARI 296 GT3", "track": "MONZA", "cfg": "GRAND PRIX",
+            "mode": "SPORT+", "at": 25.0,
         }
         self._dash = dash
         return dash

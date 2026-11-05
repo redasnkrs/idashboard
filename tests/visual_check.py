@@ -74,14 +74,17 @@ def main():
                         "scope": "global", "active": theme_id,
                         "overrides": {},
                     })
-                    page = new_page()
-                    page.goto("%s%s?demo&nogame=1" % (base, item["url"]),
-                              wait_until="load")
-                    page.wait_for_timeout(1200)
-                    path = OUT / ("%s-%s.png" % (item["id"], theme_id))
-                    page.screenshot(path=str(path))
-                    print(path)
-                    page.close()
+                    for height in (600, 560):
+                        page = new_page(1024, height)
+                        page.goto(
+                            "%s%s?demo&nogame=1" % (base, item["url"]),
+                            wait_until="load")
+                        page.wait_for_timeout(1200)
+                        path = OUT / ("%s-%s-1024x%d.png" % (
+                            item["id"], theme_id, height))
+                        page.screenshot(path=str(path))
+                        print(path)
+                        page.close()
 
             _post(base + "/api/themes", {
                 "scope": "global", "active": "ambre-ivoire",

@@ -1,0 +1,985 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cockpit</title>
+<style>
+  :root {
+    --ink: #050505;
+    --ivory: #ece6d6;
+    --muted: #8a8272;
+    --rule: #221e17;
+    --off: #1c1812;
+    --amber: #ff9a2e;
+    --red: #ff3b2a;
+    --green: #3ddc84;
+    --blue: #3d8bff;
+    --violet: #c98bff;
+    --font: "Bahnschrift", "DIN Alternate", "Segoe UI", system-ui, sans-serif;
+  }
+  html, body { margin: 0; height: 100%; background: var(--ink); overflow: hidden;
+               cursor: none; user-select: none; -webkit-user-select: none; }
+  svg { display: block; width: 100vw; height: 100vh;
+        transition: filter .55s ease, opacity .55s ease; }
+  svg.sleep { filter: grayscale(1) brightness(.52) contrast(.9); opacity: .8; }
+  text { font-family: var(--font); font-feature-settings: "tnum" 1;
+         fill: var(--ivory); }
+  .lbl { font-size: 10px; fill: var(--muted); letter-spacing: .14em; }
+  .big { font-weight: 700; }
+  .unit { font-size: 14px; fill: var(--muted); }
+  .ctl { cursor: pointer; }
+  .ctl:hover circle { stroke: var(--amber); }
+  #badge { fill: var(--ink); }
+  #cfg, #mArtist, #mAlbum, #mSource, #mPos, #mDur, #extTxt, #dateTxt,
+  #lapsN, #consN, #oilP, #boost, #carName, #mediaEmpty, #lapC {
+    fill: var(--muted);
+  }
+  #mState { fill: var(--amber); }
+  #bestV { fill: var(--violet); }
+  @keyframes pulse { 0%, 100% { opacity: .35 } 50% { opacity: 1 } }
+  #wait .dot { animation: pulse 1.6s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) {
+    svg { transition: none; }
+    #wait .dot { animation: none; }
+  }
+</style>
+</head>
+<body>
+<svg id="d" viewBox="0 0 1024 600" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="512" cy="280" r="700" gradientUnits="userSpaceOnUse">
+      <stop id="backStop0" offset="0" stop-color="#0f0d09"/>
+      <stop id="backStop1" offset="1" stop-color="#030303"/>
+    </radialGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop id="panelStop0" offset="0" stop-color="#0d0b08"/>
+      <stop id="panelStop1" offset="1" stop-color="#070605"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop id="cardStop0" offset="0" stop-color="#12100c"/>
+      <stop id="cardStop1" offset="1" stop-color="#090807"/>
+    </linearGradient>
+    <radialGradient id="face" cx="512" cy="300" r="168" gradientUnits="userSpaceOnUse">
+      <stop id="faceStop0" offset="0" stop-color="#0a0908"/>
+      <stop id="faceStop1" offset=".72" stop-color="#0b0907"/>
+      <stop id="faceStop2" offset="1" stop-color="#17110a"/>
+    </radialGradient>
+    <linearGradient id="bezel" x1="0" y1="0" x2="0" y2="1">
+      <stop id="bezelStop0" offset="0" stop-color="#4a4030"/>
+      <stop id="bezelStop1" offset=".5" stop-color="#1b1710"/>
+      <stop id="bezelStop2" offset="1" stop-color="#383024"/>
+    </linearGradient>
+    <linearGradient id="artGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop id="artStop0" offset="0" stop-color="#c98bff"/>
+      <stop id="artStop1" offset="1" stop-color="#3d8bff"/>
+    </linearGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowS" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="1.6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="artClip">
+      <rect x="748" y="62" width="76" height="76" rx="8"/>
+    </clipPath>
+  </defs>
+
+  <rect width="1024" height="600" fill="url(#bg)"/>
+
+  <!-- ===== Left: track ===== -->
+  <rect x="18" y="18" width="286" height="564" rx="18"
+        fill="url(#panel)" stroke="var(--rule)" stroke-width="1.5"/>
+
+  <g id="blkMap">
+    <text x="40" y="48" class="lbl">TRACK</text>
+    <text id="track" x="40" y="78" font-size="24" class="big">--</text>
+    <text id="cfg" x="40" y="98" font-size="11" fill="var(--muted)"></text>
+    <g transform="translate(46 126) scale(0.9)">
+      <path id="mapRoad"
+            d="M42 196C16 162 18 112 48 88C74 68 100 78 112 102C124 126 148 138 172 128C196 118 208 92 194 72C180 52 154 56 144 76C134 96 112 104 96 90C78 74 50 84 42 110C34 136 50 154 74 152C98 150 112 128 132 126C156 124 172 146 168 170C164 194 136 208 108 204C80 200 58 210 42 196Z"
+            fill="none" stroke="var(--dim)" stroke-width="16"
+            stroke-linejoin="round" stroke-linecap="round"/>
+      <path id="mapPath"
+            d="M42 196C16 162 18 112 48 88C74 68 100 78 112 102C124 126 148 138 172 128C196 118 208 92 194 72C180 52 154 56 144 76C134 96 112 104 96 90C78 74 50 84 42 110C34 136 50 154 74 152C98 150 112 128 132 126C156 124 172 146 168 170C164 194 136 208 108 204C80 200 58 210 42 196Z"
+            fill="none" stroke="var(--amber)" stroke-width="3"
+            stroke-linejoin="round" stroke-linecap="round"/>
+      <circle id="mapDot" cx="42" cy="196" r="7" fill="var(--amber)"
+              filter="url(#glow)"/>
+    </g>
+  </g>
+
+  <g id="blkPos">
+    <text x="40" y="394" class="lbl">POSITION</text>
+    <text id="posV" x="40" y="428" font-size="30" class="big">--</text>
+    <line x1="40" x2="280" y1="442" y2="442" stroke="var(--rule)"/>
+  </g>
+  <g id="blkLap">
+    <text x="40" y="462" class="lbl">LAP</text>
+    <text id="lapV" x="40" y="492" font-size="24" class="big">-:--.---</text>
+    <text id="deltaV" x="40" y="512" font-size="14" class="big"></text>
+  </g>
+  <g id="blkBest">
+    <text x="40" y="536" class="lbl">BEST</text>
+    <text id="bestV" x="40" y="558" font-size="16" class="big"
+          fill="var(--violet)">-:--.---</text>
+  </g>
+  <g id="blkLast">
+    <text x="160" y="536" class="lbl">LAST</text>
+    <text id="lastV" x="160" y="558" font-size="16" class="big">-:--.---</text>
+  </g>
+  <g id="blkCar">
+    <text id="carName" x="40" y="576" font-size="10"
+          fill="var(--muted)"></text>
+  </g>
+
+  <!-- ===== Center: gauge ===== -->
+  <g id="blkShift"><g id="leds"></g></g>
+
+  <circle cx="512" cy="300" r="168" fill="url(#face)"
+          stroke="url(#bezel)" stroke-width="5"/>
+  <g id="tach"></g>
+  <g id="ring"></g>
+
+  <text id="spd" x="512" y="330" text-anchor="middle" font-size="120"
+        class="big">0</text>
+  <text id="spdUnit" x="512" y="362" text-anchor="middle" font-size="14"
+        fill="var(--muted)" letter-spacing=".24em">KM/H</text>
+  <text id="mode" x="512" y="390" text-anchor="middle" font-size="14"
+        fill="var(--amber)" letter-spacing=".18em"></text>
+  <text id="gear" x="512" y="458" text-anchor="middle" font-size="76"
+        class="big">N</text>
+  <g id="gearStrip"></g>
+  <text id="lapC" x="512" y="508" text-anchor="middle" font-size="15"
+        fill="var(--muted)">-:--.---</text>
+  <rect x="452" y="524" width="120" height="36" rx="8" fill="var(--ivory)"/>
+  <text id="badge" x="512" y="549" text-anchor="middle" font-size="15"
+        class="big" fill="var(--ink)">P--</text>
+
+  <!-- ===== Right: media + telemetry ===== -->
+  <rect x="720" y="18" width="286" height="564" rx="18"
+        fill="url(#panel)" stroke="var(--rule)" stroke-width="1.5"/>
+
+  <g id="mediaCard">
+    <rect x="732" y="30" width="262" height="252" rx="14"
+          fill="url(#card)" stroke="var(--rule)"/>
+
+    <text x="748" y="50" class="lbl">NOW PLAYING</text>
+    <text id="mState" x="978" y="50" text-anchor="end" font-size="9"
+          fill="var(--amber)" letter-spacing=".12em"></text>
+
+    <g id="artFallback" clip-path="url(#artClip)">
+      <rect x="748" y="62" width="76" height="76" fill="url(#artGrad)"/>
+      <text id="artLetter" x="786" y="112" text-anchor="middle"
+            font-size="30" class="big" fill="var(--ivory)">♪</text>
+    </g>
+    <image id="artImg" x="748" y="62" width="76" height="76"
+           preserveAspectRatio="xMidYMid slice" clip-path="url(#artClip)"
+           style="display:none"/>
+    <rect x="748" y="62" width="76" height="76" rx="8" fill="none"
+          stroke="var(--rule)"/>
+
+    <text id="mTitle" x="836" y="80" font-size="13" class="big">NO MEDIA</text>
+    <text id="mArtist" x="836" y="100" font-size="11"
+          fill="var(--muted)"></text>
+    <text id="mAlbum" x="836" y="118" font-size="10"
+          fill="var(--muted)"></text>
+
+    <rect x="748" y="152" width="230" height="4" rx="2"
+          fill="var(--off)"/>
+    <rect id="mProg" x="748" y="152" width="0" height="4" rx="2"
+          fill="var(--amber)"/>
+    <text id="mPos" x="748" y="170" font-size="9" fill="var(--muted)"></text>
+    <text id="mDur" x="978" y="170" text-anchor="end" font-size="9"
+          fill="var(--muted)"></text>
+
+    <g id="mediaControls">
+      <g id="btnPrev" class="ctl">
+        <circle cx="800" cy="210" r="22" fill="var(--off)"
+                stroke="var(--rule)" stroke-width="1.5"/>
+        <g transform="translate(800 210)">
+          <path d="M8 -7L8 7L-4 0Z" fill="var(--ivory)"/>
+          <rect x="-9" y="-7" width="2.5" height="14" rx="1"
+                fill="var(--ivory)"/>
+        </g>
+      </g>
+      <g id="btnPlay" class="ctl">
+        <circle cx="862" cy="210" r="24" fill="var(--off)"
+                stroke="var(--rule)" stroke-width="1.5"/>
+        <g transform="translate(862 210)">
+          <path id="playIcon" d="M-4 -8L9 0L-4 8Z" fill="var(--ivory)"/>
+          <g id="pauseIcon" style="display:none">
+            <rect x="-6" y="-8" width="4" height="16" rx="1"
+                  fill="var(--ivory)"/>
+            <rect x="2" y="-8" width="4" height="16" rx="1"
+                  fill="var(--ivory)"/>
+          </g>
+        </g>
+      </g>
+      <g id="btnNext" class="ctl">
+        <circle cx="924" cy="210" r="22" fill="var(--off)"
+                stroke="var(--rule)" stroke-width="1.5"/>
+        <g transform="translate(924 210)">
+          <path d="M-8 -7L-8 7L4 0Z" fill="var(--ivory)"/>
+          <rect x="6.5" y="-7" width="2.5" height="14" rx="1"
+                fill="var(--ivory)"/>
+        </g>
+      </g>
+    </g>
+    <text id="mediaEmpty" x="786" y="210" text-anchor="middle"
+          font-size="10" fill="var(--muted)" letter-spacing=".12em"
+          style="display:none">NO MEDIA</text>
+    <text id="mSource" x="748" y="252" font-size="9" fill="var(--muted)"
+          letter-spacing=".12em"></text>
+  </g>
+
+  <text id="dateTxt" x="748" y="312" font-size="11" fill="var(--muted)"
+        letter-spacing=".08em"></text>
+  <text id="timeTxt" x="748" y="334" font-size="20" class="big"></text>
+  <text id="extTxt" x="978" y="312" text-anchor="end" font-size="11"
+        fill="var(--muted)"></text>
+
+  <g id="blkEnergy">
+    <rect x="732" y="348" width="262" height="110" rx="14"
+          fill="url(#card)" stroke="var(--rule)"/>
+    <text x="748" y="368" class="lbl">ENERGY</text>
+    <text id="fuelN" x="748" y="404" font-size="32" class="big">--</text>
+    <text x="826" y="404" font-size="13" fill="var(--muted)">L</text>
+    <text id="lapsN" x="748" y="424" font-size="10"
+          fill="var(--muted)"></text>
+    <text id="consN" x="978" y="398" text-anchor="end" font-size="10"
+          fill="var(--muted)"></text>
+    <rect x="748" y="432" width="230" height="4" rx="2"
+          fill="var(--off)"/>
+    <rect id="fuelBar" x="748" y="432" width="0" height="4" rx="2"
+          fill="var(--amber)"/>
+  </g>
+
+  <g id="blkEngine">
+    <rect x="732" y="466" width="262" height="114" rx="14"
+          fill="url(#card)" stroke="var(--rule)"/>
+    <text x="748" y="486" class="lbl">ENGINE</text>
+    <g id="blkWater">
+      <text x="748" y="506" class="lbl">WATER</text>
+      <text id="waterN" x="748" y="526" font-size="16" class="big">--</text>
+      <rect x="748" y="534" width="100" height="3" rx="1.5"
+            fill="var(--off)"/>
+      <rect id="waterBar" x="748" y="534" width="0" height="3" rx="1.5"
+            fill="var(--amber)"/>
+    </g>
+    <g id="blkOil">
+      <text x="870" y="506" class="lbl">OIL</text>
+      <text id="oilN" x="870" y="526" font-size="16" class="big">--</text>
+      <rect x="870" y="534" width="100" height="3" rx="1.5"
+            fill="var(--off)"/>
+      <rect id="oilBar" x="870" y="534" width="0" height="3" rx="1.5"
+            fill="var(--amber)"/>
+    </g>
+    <g id="blkPress">
+      <text id="oilP" x="748" y="550" font-size="10"
+            fill="var(--muted)"></text>
+      <text id="boost" x="870" y="550" font-size="10"
+            fill="var(--muted)"></text>
+    </g>
+    <g id="blkAids">
+      <text id="tcV" x="748" y="570" font-size="10" class="big">TC --</text>
+      <text id="absV" x="820" y="570" font-size="10" class="big">ABS --</text>
+      <text id="balV" x="902" y="570" font-size="10" class="big">BAL --</text>
+    </g>
+  </g>
+
+  <!-- ===== Waiting ===== -->
+  <g id="wait">
+    <rect id="waitBg" width="1024" height="600" fill="#000" opacity=".95"/>
+    <circle class="dot" cx="512" cy="268" r="7" fill="var(--amber)"/>
+    <text x="512" y="320" text-anchor="middle" font-size="28" class="big">Waiting for Assetto Corsa Evo</text>
+    <text x="512" y="352" text-anchor="middle" font-size="16"
+          fill="var(--muted)">Start a driving session to display telemetry</text>
+  </g>
+</svg>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const NS = "http://www.w3.org/2000/svg";
+  const S = (tag, attrs, parent) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+  const CX = 512, CY = 300, A0 = 135, SW = 270;
+  const rad = d => d * Math.PI / 180;
+  const pt = (r, a) => [CX + r * Math.cos(rad(a)), CY + r * Math.sin(rad(a))];
+  const f2 = n => n.toFixed(2);
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+
+  /* ---------- theme ---------- */
+  const DEFAULT_THEME = {
+    font: '"Bahnschrift", "DIN Alternate", "Segoe UI", system-ui, sans-serif',
+    units: { speed: 'kmh', temp: 'c' },
+    blocks: {
+      car: true, fuel: true, water: true, oil: true, pressures: true,
+      telltales: true, track: true, lap: true, best: true, last: true,
+      position: true, aids: true, shiftlights: true,
+    },
+    colors: {
+      ink: '#050505', ivory: '#ece6d6', muted: '#8a8272', rule: '#221e17',
+      off: '#1c1812', amber: '#ff9a2e', red: '#ff3b2a', green: '#3ddc84',
+      blue: '#3d8bff', violet: '#c98bff', dim: '#241f17',
+      backIn: '#0f0d09', backOut: '#030303',
+      faceIn: '#0a0908', faceMid: '#0b0907', faceOut: '#17110a',
+      bezelLight: '#4a4030', bezelMid: '#1b1710', bezelDark: '#383024',
+      needleFrom: '#ff4a1c', needleTo: '#ffb347',
+      tachMinor: '#7b7466', redText: '#ff5a46',
+      arrowOff: '#15231b', ledOff: '#17140f',
+      chipBorder: '#2a251c', chipActiveBg: '#3a2300',
+      waitOverlay: '#000000',
+    },
+  };
+  let TH = JSON.parse(JSON.stringify(DEFAULT_THEME));
+  const C = {};
+  const syncC = () => Object.assign(C, TH.colors);
+  syncC();
+
+  const BLOCK_IDS = {
+    car: ['blkCar'],
+    track: ['blkMap'],
+    position: ['blkPos'],
+    lap: ['blkLap'],
+    best: ['blkBest'],
+    last: ['blkLast'],
+    fuel: ['blkEnergy'],
+    water: ['blkWater'],
+    oil: ['blkOil'],
+    pressures: ['blkPress'],
+    aids: ['blkAids'],
+    shiftlights: ['blkShift'],
+  };
+
+  const cache = new Map();
+  const setT = (id, txt) => {
+    if (cache.get(id) !== txt) { cache.set(id, txt); $(id).textContent = txt; }
+  };
+  const setA = (id, attr, v) => {
+    const k = id + '|' + attr;
+    if (cache.get(k) !== v) { cache.set(k, v); $(id).setAttribute(attr, v); }
+  };
+  const fit = (id, maxW, base) => {
+    const el = $(id);
+    el.setAttribute('font-size', base);
+    const w = el.getComputedTextLength();
+    if (w > maxW) el.setAttribute('font-size', (base * maxW / w).toFixed(1));
+  };
+  const setTfit = (id, txt, maxW, base) => {
+    if (cache.get(id) !== txt) {
+      cache.set(id, txt); $(id).textContent = txt; fit(id, maxW, base);
+    }
+  };
+
+  /* ---------- gauge ---------- */
+  let builtMax = 0;
+  const ring = [];
+  function buildTach(max) {
+    builtMax = max;
+    const g = $('tach'); g.textContent = '';
+    const rg = $('ring'); rg.textContent = ''; ring.length = 0;
+    const major = max <= 10000 ? 1000 : max <= 20000 ? 2000 : 5000;
+    const minor = major / 5;
+    const redFrom = max * 0.89;
+    for (let v = 0; v <= max + 0.1; v += minor) {
+      const isMajor = Math.abs(v / major - Math.round(v / major)) < 1e-6;
+      const a = A0 + SW * v / max;
+      const red = v >= redFrom - 1e-6;
+      const [x0, y0] = pt(156, a), [x1, y1] = pt(isMajor ? 144 : 150, a);
+      S('line', { x1: f2(x0), y1: f2(y0), x2: f2(x1), y2: f2(y1),
+        stroke: red ? C.red : (isMajor ? C.ivory : C.tachMinor),
+        'stroke-width': isMajor ? 2.5 : 1.3 }, g);
+      if (isMajor) {
+        const [tx, ty] = pt(126, a);
+        const t = S('text', { x: f2(tx), y: f2(ty), 'text-anchor': 'middle',
+          'dominant-baseline': 'central', 'font-size': 15 }, g);
+        t.style.fill = red ? C.redText : C.ivory;
+        t.textContent = String(Math.round(v / 1000));
+      }
+    }
+    const N = 54;
+    for (let i = 0; i < N; i++) {
+      const f = (i + 0.5) / N;
+      const a0 = A0 + SW * i / N + 0.4;
+      const a1 = A0 + SW * (i + 1) / N - 0.4;
+      const [x0, y0] = pt(162, a0), [x1, y1] = pt(162, a1);
+      const p = S('path', {
+        d: 'M' + f2(x0) + ' ' + f2(y0) + 'A162 162 0 ' +
+           (a1 - a0 > 180 ? 1 : 0) + ' 1 ' + f2(x1) + ' ' + f2(y1),
+        fill: 'none', 'stroke-width': 6, stroke: C.off }, rg);
+      ring.push({ el: p, f, on: false, col: f < 0.89 ? C.amber : C.red });
+    }
+  }
+  function gearLabel(g) {
+    return g < 0 ? 'R' : g === 0 ? 'N' : String(g);
+  }
+
+  /* ---------- shift lights ---------- */
+  const LED_N = 27, leds = [];
+  const ledColor = l => l < 4 ? C.green : l < 9 ? C.amber : C.red;
+  for (let i = 0; i < LED_N; i++) {
+    const level = Math.min(i, LED_N - 1 - i);
+    const el = S('circle', { cx: 346 + i * (332 / (LED_N - 1)), cy: 28,
+      r: 5.5, fill: C.ledOff }, $('leds'));
+    leds.push({ el, level, col: ledColor(level), on: false });
+  }
+
+  /* ---------- gear strip ---------- */
+  const gearEls = [];
+  function buildGearStrip() {
+    $('gearStrip').textContent = '';
+    gearEls.length = 0;
+    const labels = ['R', 'N', '1', '2', '3', '4', '5', '6', '7', '8'];
+    const step = 20, start = 512 - (labels.length - 1) * step / 2;
+    labels.forEach((l, i) => {
+      const t = S('text', { x: start + i * step, y: 486,
+        'text-anchor': 'middle', 'font-size': 12, class: 'big' },
+        $('gearStrip'));
+      t.textContent = l;
+      t.style.fill = C.muted;
+      gearEls.push(t);
+    });
+  }
+
+  /* ---------- map ---------- */
+  const mapPath = $('mapPath');
+  const mapDot = $('mapDot');
+  let mapLen = 0;
+  function mapReady() {
+    mapLen = mapPath.getTotalLength();
+    updateMap(null);
+  }
+  function updateMap(npos) {
+    if (npos == null || !mapLen) { mapDot.style.display = 'none'; return; }
+    mapDot.style.display = '';
+    const p = mapPath.getPointAtLength(clamp(npos) * mapLen);
+    mapDot.setAttribute('cx', p.x.toFixed(2));
+    mapDot.setAttribute('cy', p.y.toFixed(2));
+  }
+
+  /* ---------- theme application ---------- */
+  const GRADIENT_STOPS = {
+    backStop0: 'backIn', backStop1: 'backOut',
+    panelStop0: 'faceIn', panelStop1: 'backOut',
+    cardStop0: 'faceMid', cardStop1: 'faceIn',
+    faceStop0: 'faceIn', faceStop1: 'faceMid', faceStop2: 'faceOut',
+    bezelStop0: 'bezelLight', bezelStop1: 'bezelMid',
+    bezelStop2: 'bezelDark',
+    artStop0: 'violet', artStop1: 'blue',
+  };
+  function normalizeTheme(theme) {
+    const out = JSON.parse(JSON.stringify(DEFAULT_THEME));
+    for (const k in theme) {
+      if (k === 'colors' || k === 'units' || k === 'blocks')
+        out[k] = { ...out[k], ...theme[k] };
+      else out[k] = theme[k];
+    }
+    return out;
+  }
+  function applyBlocks(blocks) {
+    for (const name in BLOCK_IDS) {
+      const on = blocks[name] !== false;
+      for (const id of BLOCK_IDS[name]) {
+        const el = $(id);
+        if (el) el.style.display = on ? '' : 'none';
+      }
+    }
+  }
+  function applyTheme(theme) {
+    if (!theme || !theme.colors) return;
+    TH = normalizeTheme(theme);
+    syncC();
+    const root = document.documentElement.style;
+    ['ink', 'ivory', 'muted', 'rule', 'off', 'amber', 'red', 'green', 'blue',
+     'violet', 'dim'].forEach(k => root.setProperty('--' + k, C[k]));
+    root.setProperty('--font', TH.font || DEFAULT_THEME.font);
+    for (const id in GRADIENT_STOPS) {
+      const el = $(id);
+      if (el) el.setAttribute('stop-color', C[GRADIENT_STOPS[id]]);
+    }
+    const wb = $('waitBg');
+    if (wb) wb.setAttribute('fill', C.waitOverlay);
+    $('mapRoad').setAttribute('stroke', C.dim);
+    $('mapPath').setAttribute('stroke', C.amber);
+    if (builtMax) buildTach(builtMax);
+    for (const l of leds) {
+      l.col = ledColor(l.level);
+      if (!l.on) l.el.setAttribute('fill', C.ledOff);
+    }
+    buildGearStrip();
+    applyBlocks(TH.blocks);
+    cache.clear();
+  }
+
+  /* ---------- clock ---------- */
+  function updateClock() {
+    const d = new Date();
+    setT('dateTxt', d.toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase());
+    setT('timeTxt', d.toLocaleTimeString('en-US', {
+      hour: '2-digit', minute: '2-digit' }));
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  /* ---------- data / demo ---------- */
+  const params = new URLSearchParams(location.search);
+  const demo = params.has('demo');
+  const demoOffset = Number(params.get('demo')) || 0;
+  const demoIgn = params.get('ign');
+  const META = window.__IDASH__ || {};
+  const DASHBOARD = params.has('nodash') ? null :
+    (params.get('dashboard') || META.spec || null);
+  const GAME = params.has('nogame') ? null :
+    (params.get('game') || META.game_id || 'acevo');
+  const CAR_PARAM = params.get('car');
+  const HTTP = location.protocol === 'http:' || location.protocol === 'https:';
+  let tgt = { c: false }, lastMsg = 0, themeCar = null;
+
+  function fetchTheme() {
+    const query = [];
+    if (DASHBOARD) query.push('dashboard=' + encodeURIComponent(DASHBOARD));
+    if (GAME) query.push('game=' + encodeURIComponent(GAME));
+    const car = CAR_PARAM || themeCar;
+    if (car) query.push('car=' + encodeURIComponent(car));
+    const url = '/api/themes/active' +
+      (query.length ? '?' + query.join('&') : '');
+    fetch(url, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(t => { if (t && t.colors) applyTheme(t); })
+      .catch(() => {});
+  }
+  if (HTTP) {
+    fetchTheme();
+    const stream = new EventSource('/api/themes/stream');
+    stream.onmessage = () => fetchTheme();
+  }
+
+  function demoData(t) {
+    t += demoOffset;
+    const ratios = [0, 7.2, 11.4, 15.8, 20.3, 25, 29.5, 34];
+    const sp = 28 + 240 * (0.5 - 0.5 * Math.cos(2 * Math.PI * t / 28));
+    const accel = Math.sin(2 * Math.PI * t / 28) > 0;
+    let g = 1;
+    while (g < 7 && sp / ratios[g] * 1000 > 8900) g++;
+    const rpm = Math.max(900, sp / ratios[g] * 1000);
+    const off = demoIgn === 'off' ||
+      (demoIgn === 'wake' && t - demoOffset < 1.5);
+    return {
+      c: true, st: 2, v: sp, r: rpm, rm: 9000, g,
+      gas: accel ? 0.92 : 0, brk: accel ? 0 : 0.35,
+      fuel: Math.max(5, 42 - t * 0.02), fp: 0.7, fpl: 2.4,
+      laps: 17.5, wt: 89, ot: 105, op: 4.2, boost: 0.9, at: 25,
+      low: true, high: Math.floor(t / 9) % 2 === 1,
+      L: false, R: false, haz: false, hb: 0, pit: false, pitlane: false,
+      tc: accel && sp < 90, abs: false, lim: false, up: rpm > 8700,
+      run: !off, ign: !off, tcl: 3, absl: 2, bb: 56.5,
+      lap: (t * 1000) % 88500, last: 89123, best: 88342,
+      delta: Math.sin(t / 3) * 420, valid: true,
+      pos: 3, nd: 12, npos: (t / 90) % 1,
+      car: 'FERRARI 296 GT3', track: 'MONZA', cfg: 'GRAND PRIX',
+      mode: 'SPORT+',
+    };
+  }
+
+  if (!demo) {
+    const es = new EventSource('/stream');
+    es.onmessage = e => {
+      try { tgt = JSON.parse(e.data); lastMsg = performance.now(); }
+      catch (_) {}
+    };
+  }
+
+  /* ---------- contact ---------- */
+  const WAKE_MS = 2400, CONTACT_DEBOUNCE = 220;
+  let powerState = 'on', powerRaw = null, powerChanged = 0, wakeStart = 0;
+
+  function setSleep(on) {
+    const el = $('d');
+    if (on) el.classList.add('sleep');
+    else el.classList.remove('sleep');
+  }
+  function contactOf(d) {
+    if (d.ign !== undefined) return !!(d.ign || d.run);
+    if (d.run !== undefined) return !!d.run;
+    return true;
+  }
+  function sleepData(d) {
+    return Object.assign({}, d, {
+      st: 0, v: 0, r: 0, g: 0, gas: 0, brk: 0, hb: 0,
+      low: false, high: false, L: false, R: false, haz: false,
+      pit: false, pitlane: false, tc: false, abs: false, lim: false,
+      up: false, run: false, ign: false,
+      fuel: null, fp: 0, fpl: 0, laps: 0,
+      wt: null, ot: null, op: null, boost: null,
+      lap: 0, last: 0, best: 0, delta: 0, valid: true,
+      pos: 0, nd: 0, npos: null, tcl: null, absl: null, bb: null,
+      mode: '',
+    });
+  }
+  function wakeData(d, elapsed) {
+    const p = Math.min(1, elapsed / WAKE_MS);
+    const sweep = p < 0.55 ? p / 0.55 : Math.max(0, 1 - (p - 0.55) / 0.45);
+    return Object.assign({}, d, {
+      st: 2, v: 0, r: (d.rm || 8000) * sweep, g: 0,
+      gas: 0, brk: 0, hb: 0, low: false, high: false,
+      L: false, R: false, haz: false, pit: false, pitlane: false,
+      tc: false, abs: false, lim: false, up: false, ign: true,
+      lap: 0, last: 0, best: 0, delta: 0, valid: true,
+      pos: 0, nd: 0,
+    });
+  }
+  function updatePower(d, live, now) {
+    if (!live) {
+      setSleep(false);
+      powerState = 'on';
+      powerRaw = null;
+      return { state: 'on', data: d };
+    }
+    const raw = contactOf(d);
+    if (powerRaw === null) {
+      powerRaw = raw;
+      powerState = raw ? 'on' : 'off';
+      powerChanged = now;
+      setSleep(!raw);
+    } else if (raw !== powerRaw) {
+      powerRaw = raw;
+      powerChanged = now;
+    }
+    if (now - powerChanged >= CONTACT_DEBOUNCE) {
+      if (powerRaw && powerState === 'off') {
+        powerState = 'wake';
+        wakeStart = now;
+        setSleep(false);
+      } else if (!powerRaw && powerState !== 'off') {
+        powerState = 'off';
+        setSleep(true);
+      }
+    }
+    if (powerState === 'wake' && now - wakeStart >= WAKE_MS) powerState = 'on';
+    if (powerState === 'off') return { state: 'off', data: sleepData(d) };
+    if (powerState === 'wake') {
+      return { state: 'wake', data: wakeData(d, now - wakeStart) };
+    }
+    return { state: 'on', data: d };
+  }
+
+  /* ---------- media ---------- */
+  const DEMO_ART = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120">' +
+    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
+    '<stop offset="0" stop-color="#c98bff"/>' +
+    '<stop offset="1" stop-color="#3d8bff"/></linearGradient></defs>' +
+    '<rect width="120" height="120" fill="url(#g)"/>' +
+    '<circle cx="86" cy="34" r="22" fill="#ffffff" opacity=".18"/>' +
+    '<text x="12" y="102" font-family="sans-serif" font-size="16" ' +
+    'fill="#ffffff" opacity=".85">CIDER</text></svg>');
+  const DEMO_TRACKS = [
+    { title: 'Somewhere', artist: 'Blu Mar Ten', album: 'Somewhere',
+      duration: 193 },
+    { title: 'Night Drive', artist: 'Kavinsky', album: 'OutRun',
+      duration: 254 },
+    { title: 'Midnight City', artist: 'M83', album: 'Hurry Up',
+      duration: 243 },
+  ];
+  let media = {
+    ok: false, title: '', artist: '', album: '', source: '',
+    playing: false, status: '', position: 0, duration: 0,
+    has_art: false, art_url: null,
+  };
+  let mediaAt = 0, demoTrack = 0, demoPlaying = true;
+  let artUrl = null, prevServer = null, stalledSince = 0;
+
+  function currentPos(now) {
+    if (!media.ok) return 0;
+    const pos = media.position + (media.playing ? (now - mediaAt) / 1000 : 0);
+    return media.duration > 0 ? clamp(pos, 0, media.duration) : pos;
+  }
+  function fmtTime(sec) {
+    if (!(sec >= 0) || !isFinite(sec)) return '--:--';
+    const s = Math.floor(sec);
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+  function setArt(url) {
+    const img = $('artImg');
+    if (url === artUrl) return;
+    artUrl = url;
+    if (!url) {
+      img.style.display = 'none';
+      img.removeAttribute('href');
+      return;
+    }
+    img.onload = () => { img.style.display = ''; };
+    img.onerror = () => { img.style.display = 'none'; };
+    img.setAttribute('href', url);
+    img.style.display = 'none';
+  }
+  function renderMedia(now) {
+    const empty = !media.ok;
+    $('mediaEmpty').style.display = empty ? '' : 'none';
+    $('mediaControls').style.display = empty ? 'none' : '';
+    setT('mState', empty ? '' : (media.playing ? 'PLAYING' : 'PAUSED'));
+    const title = empty ? 'NO MEDIA' : (media.title || 'UNTITLED');
+    setTfit('mTitle', title, 138, 13);
+    setTfit('mArtist', empty ? '' : (media.artist || ''), 138, 11);
+    setTfit('mAlbum', empty ? '' : (media.album || ''), 138, 10);
+    const src = empty ? '' : (/cider/i.test(media.source) ? 'CIDER' :
+      (media.source || '').split('!')[0].toUpperCase());
+    setTfit('mSource', src, 230, 9);
+    setArt(empty ? null : (media.has_art ? media.art_url : null));
+    $('artLetter').textContent = empty ? '♪' :
+      ((media.artist || media.title || '♪').trim().charAt(0).toUpperCase() ||
+       '♪');
+    $('playIcon').style.display = media.playing ? 'none' : '';
+    $('pauseIcon').style.display = media.playing ? '' : 'none';
+    if (media.duration > 0 && !media.stalled) {
+      const pos = currentPos(now);
+      setT('mPos', fmtTime(pos));
+      setT('mDur', fmtTime(media.duration));
+      setA('mProg', 'width', (230 * clamp(pos / media.duration)).toFixed(1));
+      $('mProg').style.display = '';
+      $('mPos').style.display = '';
+      $('mDur').style.display = '';
+    } else {
+      $('mProg').style.display = 'none';
+      $('mPos').style.display = 'none';
+      $('mDur').style.display = 'none';
+    }
+  }
+  function applyDemoMedia() {
+    const tr = DEMO_TRACKS[demoTrack % DEMO_TRACKS.length];
+    media = {
+      ok: true, title: tr.title, artist: tr.artist, album: tr.album,
+      source: 'Cider', playing: demoPlaying, status: '',
+      position: 0, duration: tr.duration, has_art: true,
+      art_url: DEMO_ART, stalled: false,
+    };
+    mediaAt = performance.now();
+  }
+  async function mediaAction(action) {
+    if (action !== 'playpause' && action !== 'next' && action !== 'prev') return;
+    if (demo) {
+      const now = performance.now();
+      if (action === 'playpause') {
+        const pos = currentPos(now);
+        demoPlaying = !demoPlaying;
+        media.playing = demoPlaying;
+        media.position = pos;
+        mediaAt = now;
+      } else {
+        demoTrack += action === 'next' ? 1 : -1;
+        applyDemoMedia();
+      }
+      renderMedia(now);
+      return;
+    }
+    try {
+      await fetch('/api/media/control', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      setTimeout(mediaPoll, 250);
+    } catch (_) {}
+  }
+  async function mediaPoll() {
+    if (demo) { applyDemoMedia(); return; }
+    try {
+      const r = await fetch('/api/media', { cache: 'no-store' });
+      const data = await r.json();
+      if (data.title !== media.title || data.artist !== media.artist) {
+        prevServer = null;
+        stalledSince = 0;
+      }
+      const pos = Number(data.position) || 0;
+      const dur = Number(data.duration) || 0;
+      if (data.ok && data.playing && dur > 0) {
+        if (prevServer !== null && pos <= prevServer + 0.001) {
+          if (!stalledSince) stalledSince = performance.now();
+        } else {
+          stalledSince = 0;
+        }
+        prevServer = pos;
+      } else {
+        prevServer = null;
+        stalledSince = 0;
+      }
+      media = {
+        ok: !!data.ok,
+        title: data.title || '',
+        artist: data.artist || '',
+        album: data.album || '',
+        source: data.source || '',
+        playing: !!data.playing,
+        status: data.status || '',
+        position: pos,
+        duration: dur,
+        has_art: !!data.has_art,
+        art_url: data.has_art ? '/api/media/art?v=' + data.art_rev : null,
+        stalled: !!(stalledSince && performance.now() - stalledSince > 3000),
+      };
+      mediaAt = performance.now();
+    } catch (_) {}
+  }
+  if (demo) {
+    applyDemoMedia();
+  } else if (HTTP) {
+    mediaPoll();
+    setInterval(mediaPoll, 1000);
+  }
+  $('btnPrev').addEventListener('click', e => {
+    e.stopPropagation(); mediaAction('prev');
+  });
+  $('btnPlay').addEventListener('click', e => {
+    e.stopPropagation(); mediaAction('playpause');
+  });
+  $('btnNext').addEventListener('click', e => {
+    e.stopPropagation(); mediaAction('next');
+  });
+
+  /* ---------- formats ---------- */
+  const fmt = ms => {
+    if (!(ms > 0) || ms >= 3600000) return '-:--.---';
+    const m = Math.floor(ms / 60000);
+    const s = Math.floor(ms % 60000 / 1000);
+    const r = Math.floor(ms % 1000);
+    return m + ':' + String(s).padStart(2, '0') + '.' +
+      String(r).padStart(3, '0');
+  };
+  const num = (v, d = 0) => (v == null ? '--' : v.toFixed(d));
+
+  /* ---------- loop ---------- */
+  const cur = { r: 0, v: 0, fp: 0, npos: 0 };
+  const ease = (a, b, dt, tau) => a + (b - a) * (1 - Math.exp(-dt / tau));
+  let lastT = performance.now();
+
+  function updateGear(g) {
+    const idx = g < 0 ? 0 : g === 0 ? 1 : Math.min(9, g + 1);
+    gearEls.forEach((el, i) => {
+      const on = i === idx;
+      el.style.fill = on ? C.amber : C.muted;
+      el.setAttribute('font-weight', on ? '700' : '400');
+    });
+  }
+
+  function frame(now) {
+    const dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+    const raw = demo ? demoData(now / 1000) : tgt;
+    const live = !!raw.c && (demo || now - lastMsg < 2000);
+    const power = updatePower(raw, live, now);
+    const d = power.data;
+
+    setA('wait', 'display', live ? 'none' : 'inline');
+    if (live) {
+      if (!CAR_PARAM && d.car && d.car !== themeCar) {
+        themeCar = d.car;
+        fetchTheme();
+      }
+      const max = d.rm || 8000;
+      if (Math.abs(max - builtMax) > 1) buildTach(max);
+      cur.r = ease(cur.r, d.r, dt, 0.035);
+      cur.v = ease(cur.v, d.v, dt, 0.05);
+      cur.fp = ease(cur.fp, d.fp, dt, 0.3);
+      const rf = clamp(cur.r / max);
+      const mph = TH.units.speed === 'mph';
+      const fah = TH.units.temp === 'f';
+      const toTemp = v => v == null ? null : (fah ? v * 9 / 5 + 32 : v);
+
+      setT('spd', String(Math.round(mph ? cur.v * 0.621371 : cur.v)));
+      setT('spdUnit', mph ? 'MPH' : 'KM/H');
+      setT('gear', gearLabel(d.g));
+      updateGear(d.g);
+      setT('mode', d.mode || '');
+      setT('lapC', fmt(d.lap));
+      setA('lapC', 'style', 'fill:' + (d.valid === false ? C.red : C.muted));
+      const dl = d.delta;
+      setT('deltaV', d.lap > 0 && dl && Math.abs(dl) < 60000
+        ? (dl < 0 ? '-' : '+') + (Math.abs(dl) / 1000).toFixed(3) : '');
+      setA('deltaV', 'style', 'fill:' + (dl < 0 ? C.green : C.red));
+      setT('posV', d.pos > 0 && d.nd > 1 ? d.pos + ' / ' + d.nd : '--');
+      setT('badge', d.pos > 0 && d.nd > 1 ? 'P' + d.pos + ' / ' + d.nd : '--');
+      setTfit('track', d.track || '--', 250, 24);
+      setT('cfg', d.cfg || '');
+      setTfit('carName', d.car || '', 250, 10);
+      setT('lapV', fmt(d.lap));
+      setT('bestV', fmt(d.best));
+      setT('lastV', fmt(d.last));
+
+      const at = toTemp(d.at);
+      setT('extTxt', 'EXT ' + (at == null ? '--' : Math.round(at) +
+        (fah ? '°F' : '°C')));
+
+      if (d.npos != null) {
+        cur.npos = ease(cur.npos, d.npos, dt, 0.12);
+        updateMap(cur.npos);
+      } else {
+        updateMap(null);
+      }
+
+      for (const s of ring) {
+        const on = s.f <= rf;
+        if (on !== s.on) {
+          s.on = on;
+          s.el.setAttribute('stroke', on ? s.col : C.off);
+        }
+      }
+      const lit = rf >= 0.72;
+      const flashAll = (d.lim || rf > 0.975) && Math.floor(now / 90) % 2 === 0;
+      for (const l of leds) {
+        const on = !flashAll && lit && rf >= 0.72 + 0.26 * (l.level / 13);
+        if (on !== l.on) {
+          l.on = on;
+          l.el.setAttribute('fill', on ? l.col : C.ledOff);
+          if (on) l.el.setAttribute('filter', 'url(#glowS)');
+          else l.el.removeAttribute('filter');
+        }
+      }
+
+      setT('fuelN', num(d.fuel, 1));
+      setT('lapsN', d.laps > 0 ? d.laps.toFixed(1) + ' LAPS' :
+        (d.fpl > 0 ? d.fpl.toFixed(1) + ' L/LAP' : ''));
+      setT('consN', d.fpl > 0 ? d.fpl.toFixed(1) + ' L/LAP' : '');
+      setA('fuelBar', 'width', (230 * clamp(cur.fp)).toFixed(1));
+      setA('fuelBar', 'fill', cur.fp < 0.1 ? C.red :
+        cur.fp < 0.25 ? C.amber : C.amber);
+
+      const wt = toTemp(d.wt), ot = toTemp(d.ot);
+      setT('waterN', wt == null ? '--' : Math.round(wt) + (fah ? '°F' : '°C'));
+      setT('oilN', ot == null ? '--' : Math.round(ot) + (fah ? '°F' : '°C'));
+      setA('waterBar', 'width', (100 * clamp(((d.wt ?? 40) - 40) / 90)).toFixed(1));
+      setA('waterBar', 'fill', d.wt >= 115 ? C.red : d.wt >= 105 ? C.amber : C.ivory);
+      setA('oilBar', 'width', (100 * clamp(((d.ot ?? 40) - 40) / 110)).toFixed(1));
+      setA('oilBar', 'fill', d.ot >= 145 ? C.red : d.ot >= 130 ? C.amber : C.ivory);
+      setT('oilP', d.op == null ? '' : d.op.toFixed(1) + ' bar');
+      setT('boost', d.boost == null ? '' : d.boost.toFixed(2) + ' bar');
+      setT('tcV', 'TC ' + (d.tcl == null ? '--' : d.tcl));
+      setT('absV', 'ABS ' + (d.absl == null ? '--' : d.absl));
+      setT('balV', 'BAL ' + (d.bb == null ? '--' : d.bb.toFixed(1)));
+      setA('tcV', 'style', 'fill:' + (d.tc ? C.amber : C.muted));
+      setA('absV', 'style', 'fill:' + (d.abs ? C.amber : C.muted));
+    }
+    renderMedia(now);
+    requestAnimationFrame(frame);
+  }
+
+  buildTach(9000);
+  buildGearStrip();
+  mapReady();
+  requestAnimationFrame(frame);
+
+  addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  });
+})();
+</script>
+</body>
+</html>

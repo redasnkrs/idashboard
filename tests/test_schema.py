@@ -32,13 +32,14 @@ class SchemaTest(unittest.TestCase):
 
     def test_nullable_values(self):
         dash = FakeSource().read()
-        for key in ("wt", "ot", "op", "boost", "tcl", "absl", "bb"):
+        for key in ("wt", "ot", "op", "boost", "at", "tcl", "absl", "bb",
+                    "npos"):
             dash[key] = None
         self.assertEqual([], validate(dash))
 
     def test_contract_has_expected_keys(self):
         for key in ("c", "v", "r", "rm", "g", "fuel", "lap", "car",
-                    "ign", "run"):
+                    "ign", "run", "npos", "mode", "at"):
             self.assertIn(key, DASH_SCHEMA)
 
 

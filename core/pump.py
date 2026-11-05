@@ -40,12 +40,15 @@ def poll_loop(source, debug=False, hz=POLL_HZ):
                     print(
                         "kmh={:.0f} rpm={:.0f}/{:.0f} gear={} fuel={:.1f}L "
                         "low={} high={} L={} R={} haz={} hb={:.2f} | "
-                        "ign={} run={} car='{}' track='{}' lap={} best={} "
+                        "ign={} run={} npos={} mode='{}' at={} "
+                        "car='{}' track='{}' lap={} best={} "
                         "tc={} abs={} wt={} ot={}".format(
                             dash["v"], dash["r"], dash["rm"], dash["g"],
                             dash["fuel"], dash["low"], dash["high"],
                             dash["L"], dash["R"], dash["haz"], dash["hb"],
                             dash.get("ign"), dash.get("run"),
+                            dash.get("npos"), dash.get("mode"),
+                            dash.get("at"),
                             dash["car"], dash["track"], dash["lap"],
                             dash["best"], dash["tcl"], dash["absl"],
                             dash["wt"], dash["ot"]))

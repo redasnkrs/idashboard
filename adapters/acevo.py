@@ -186,6 +186,13 @@ def build_dash(phys, gfx, st):
     if st is not None:
         track = pretty(clean(st.track))
         cfg = pretty(clean(st.track_configuration))
+    mode = pretty(clean(gfx.performance_mode_name))
+    npos = plausible(float(gfx.npos), 0.0, 1.0)
+    air = None
+    if st is not None:
+        air = plausible(float(st.ambient_c), -30, 60)
+    if air is None:
+        air = plausible(float(gfx.air_temperature_c), -30, 60)
     laps_left = float(gfx.laps_possible_with_fuel)
     return {
         "c": True, "st": int(gfx.status),
@@ -211,13 +218,15 @@ def build_dash(phys, gfx, st):
         "ot": plausible(float(gfx.oil_temperature_c), -20, 250),
         "op": plausible(float(gfx.oil_pressure_bar), 0, 20),
         "boost": plausible(float(gfx.turbo_boost), -2, 10),
+        "at": air,
         "lap": int(gfx.current_lap_time_ms), "last": int(gfx.last_laptime_ms),
         "best": int(gfx.best_laptime_ms), "delta": int(gfx.delta_time_ms),
         "valid": bool(gfx.is_valid_lap),
         "pos": int(gfx.current_pos), "nd": int(gfx.total_drivers),
+        "npos": npos,
         "tcl": level(elec[0]), "absl": level(elec[2]),
         "bb": plausible(bb, 20, 90),
-        "car": car, "track": track, "cfg": cfg,
+        "car": car, "track": track, "cfg": cfg, "mode": mode,
     }
 
 

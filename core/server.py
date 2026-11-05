@@ -25,7 +25,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from core import catalog, game, launcher, pump, themes
+from core import catalog, game, launcher, media, pump, themes
 from core.config import (DEFAULT_DASHBOARD, HOME_FILE, PORT, SETTINGS_FILE,
                          STREAM_HZ, dashboard_asset, dashboard_file,
                          dashboard_manifest, spec_for_path)
@@ -92,6 +92,15 @@ class Handler(BaseHTTPRequestHandler):
             self._send(pump.STATE["dash"], "application/json")
         elif path == "/api/game":
             self._send(json.dumps(game.status()).encode(), "application/json")
+        elif path == "/api/media":
+            self._send(json.dumps(media.snapshot()).encode(),
+                       "application/json")
+        elif path == "/api/media/art":
+            data, ctype = media.art()
+            if not data:
+                self.send_error(404)
+            else:
+                self._send(data, ctype or "image/jpeg")
         elif path == "/api/dashboards":
             items = catalog.list_dashboards()
             categories = []
@@ -155,6 +164,8 @@ class Handler(BaseHTTPRequestHandler):
             self._detect_game()
         elif path == "/api/game/launch":
             self._launch_game()
+        elif path == "/api/media/control":
+            self._media_control()
         else:
             self.send_error(405)
 
@@ -269,6 +280,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def _launch_game(self):
         result = game.launch()
+        self._send(json.dumps(result).encode(), "application/json",
+                   200 if result.get("ok") else 400)
+
+    def _media_control(self):
+        try:
+            payload = self._read_json()
+        except (ValueError, KeyError, TypeError) as exc:
+            self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
+                       "application/json", 400)
+            return
+        result = media.control(str(payload.get("action") or ""))
         self._send(json.dumps(result).encode(), "application/json",
                    200 if result.get("ok") else 400)
 

@@ -44,6 +44,7 @@ DASH_SCHEMA = {
     "ot": "number|null",
     "op": "number|null",
     "boost": "number|null",
+    "at": "number|null",
     "lap": "int",
     "last": "int",
     "best": "int",
@@ -51,12 +52,14 @@ DASH_SCHEMA = {
     "valid": "bool",
     "pos": "int",
     "nd": "int",
+    "npos": "number|null",
     "tcl": "int|null",
     "absl": "int|null",
     "bb": "number|null",
     "car": "str",
     "track": "str",
     "cfg": "str",
+    "mode": "str",
 }
 
 

@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 from adapters.fake import FakeSource
-from core import game, pump, themes
+from core import game, media, pump, themes
 from core.schema import validate
 from core.server import serve
 
@@ -101,8 +101,8 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(200, status)
         data = json.loads(body)
         specs = {item["spec"] for item in data["dashboards"]}
-        self.assertEqual({"course/acevo-cluster", "course/acevo-minimal"},
-                         specs)
+        self.assertEqual({"course/acevo-cluster", "course/acevo-minimal",
+                          "course/acevo-cockpit"}, specs)
         self.assertEqual("course/acevo-cluster", data["default"])
         for item in data["dashboards"]:
             self.assertTrue(item["preview_url"])
@@ -151,6 +151,50 @@ class ServerTest(unittest.TestCase):
         data = json.loads(body)
         self.assertTrue(data["ok"])
         self.assertEqual("/tmp/assetto-test.exe", data["exe"])
+
+    def test_media_api(self):
+        status, _, body = self.get("/api/media")
+        self.assertEqual(200, status)
+        info = json.loads(body)
+        self.assertIn("platform", info)
+        self.assertIn("has_art", info)
+
+    def test_media_control_rejects_bad_action(self):
+        status, body = self.post("/api/media/control", {"action": "nope"})
+        self.assertEqual(400, status)
+        self.assertFalse(json.loads(body)["ok"])
+
+    def test_media_control_route(self):
+        old = media.control
+        media.control = lambda action: {"ok": True, "action": action}
+        try:
+            status, body = self.post("/api/media/control",
+                                     {"action": "playpause"})
+        finally:
+            media.control = old
+        self.assertEqual(200, status)
+        self.assertEqual("playpause", json.loads(body)["action"])
+
+    def test_media_art_route(self):
+        png = b"\x89PNG\r\n\x1a\nidash"
+        old = media.art
+        media.art = lambda: (png, "image/png")
+        try:
+            status, ctype, body = self.get("/api/media/art")
+        finally:
+            media.art = old
+        self.assertEqual(200, status)
+        self.assertIn("image/png", ctype)
+        self.assertEqual(png, body)
+
+    def test_media_art_missing(self):
+        old = media.art
+        media.art = lambda: (None, "image/jpeg")
+        try:
+            status, _, _ = self.get("/api/media/art")
+        finally:
+            media.art = old
+        self.assertEqual(404, status)
 
     def test_dashboard_injects_meta(self):
         status, _, body = self.get("/dashboard/course/acevo-minimal")

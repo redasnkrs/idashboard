@@ -8,6 +8,7 @@ import argparse
 import sys
 import threading
 
+from core import media
 from core.config import PORT
 from core.pump import poll_loop
 from core.server import serve
@@ -38,6 +39,7 @@ def main(argv=None):
     source = _make_source(args.fake)
     threading.Thread(target=poll_loop, args=(source, args.debug),
                      daemon=True).start()
+    media.start()
     server = serve(args.port)
     port = server.server_address[1]
     print(f"Accueil          : http://localhost:{port}/")
