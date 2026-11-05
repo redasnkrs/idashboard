@@ -37,6 +37,7 @@ Structure après la Phase 2 et le début de la Phase 3 :
 | `core/catalog.py` | Catalogue des compteurs (scan des `manifest.json`). |
 | `core/themes.py` | Palettes, résolution par compteur/jeu/voiture, sauvegarde, diffusion. |
 | `core/launcher.py` | Ouverture de Chrome `--app` sur le mini écran. |
+| `core/nav_snippet.py` | Script injecté dans les compteurs : balayage tactile / flèches entre compteurs. |
 | `adapters/acevo.py` | Source AC Evo (mémoire partagée, structures `ctypes`). |
 | `adapters/fake.py` | Fausse source animée pour Mac/Linux/tests. |
 | `adapters/base.py` | Interface commune des sources (`read()`, `ets2()`). |
@@ -100,6 +101,7 @@ est utilisé sur le PC.
 - **Accueil** (`/`, `home/index.html`) : cartes avec aperçu, description, tags, filtres par catégorie. Bouton « Ouvrir sur le 7" » (`POST /api/launch`), « Aperçu » (ouvre le compteur dans un onglet) et « Options » (`/settings?dashboard=…`). L'accueil indique si le pont répond.
 - **Lanceur** (`core/launcher.py`) : cherche Chrome/Chromium/Edge (chemins Windows, applications macOS, PATH Linux), puis lance `--app --start-fullscreen --user-data-dir=.profile-7 --window-position --window-size` avec les coordonnées de `config.SCREEN` (surchargées par `IDASH_SCREEN_X/Y/W/H`). Sous Windows les coordonnées sont toujours appliquées ; ailleurs seulement si `IDASH_SCREEN_X` est fourni (sinon Chrome s'ouvre normalement). Ferme l'ancienne fenêtre si on change de compteur ; évite les doublons. Si aucun Chromium n'est trouvé, ouvre le navigateur par défaut. Le profil `.profile-7/` est ignoré par git.
 - **Identité injectée** : le serveur insère `window.__IDASH__` (`spec`, `id`, `name`, `category`, `game`, `game_id`, `schema`, `schema_version`, `size`) avant `</head>`. Les compteurs n'ont plus besoin de coder leur nom en dur ; les paramètres `?dashboard=`, `?game=`, `?car=`, `?demo`, `?nogame`, `?nodash` restent disponibles pour les aperçus.
+- **Navigation tactile** : le serveur injecte aussi `core/nav_snippet.py` dans chaque compteur. Un balayage horizontal (ou les flèches ← / →) passe au compteur précédent / suivant du catalogue (`/api/dashboards`, bouclage), avec un petit glissement et conservation des paramètres (`?demo`, `?game`, `?car`). Désactivé dans l'iframe d'aperçu des réglages (`window.top !== window.self`).
 - **Portée thème compteur** : en plus de global / jeu / voiture, `dashboards` s'applique à un `spec` précis. Résolution : **compteur > voiture > jeu > global**. La page de réglages permet de choisir la portée « Compteur » et de réinitialiser la portée courante.
 - **Compteur minimal** (`dashboards/course/acevo-minimal/`) : vitesse, rapport, barre de régime, 27 shift lights, voyants (icônes feux / route / frein, texte PIT) et aides (TC/ABS avec leur niveau). Même contrat de données, même thème, mêmes unités, blocs `telltales` / `aids` / `shiftlights`. Il gère aussi la veille grise et le réveil (barre de régime + LEDs + voyants) via `?demo&ign=off` / `?demo&ign=wake`.
 
@@ -149,7 +151,7 @@ Le format `/api/ets2/telemetry` est un second format, indépendant, calqué sur 
 - Phase 1 : les 16 tests passent (`python -m unittest discover -s tests -v`) et les captures Playwright 1024x600 / 1024x560 montrent le même design qu'avant.
 - `core/schema.py` valide la sortie de `adapters/fake.py` et l'état déconnecté `{"c": false}`.
 - Phase 2 : 27 tests passent. Captures Playwright des 3 thèmes à 1024x600 et 1024x560. Une couleur changée dans `/settings` est enregistrée et appliquée dans l'aperçu sans rechargement (vérifié via Playwright, aucune erreur JS). Unités mph/°F et masquage de blocs vérifiés.
-- Phase 3 (partiel) : 36 tests passent (catalogue, accueil, injection `__IDASH__`, assets, redirection `/dashboard`, reset de portée, rejet d'un compteur inconnu, lanceur). Captures Playwright des 3 thèmes pour les 2 compteurs, de l'accueil et des réglages, plus les états `ign=off` (veille grise) et `ign=wake` (test des voyants + balayage) ; aucune erreur JS. Les `preview.png` sont générés depuis les pages réelles. Lancement Chrome réel **non testable sur Mac**.
+- Phase 3 (partiel) : 36 tests passent (catalogue, accueil, injection `__IDASH__`, assets, redirection `/dashboard`, reset de portée, rejet d'un compteur inconnu, lanceur). Captures Playwright des 3 thèmes pour les 2 compteurs, de l'accueil et des réglages, plus les états `ign=off` (veille grise) et `ign=wake` (test des voyants + balayage) ; aucune erreur JS. Le balayage tactile gauche/droite est vérifié via Playwright (cluster ↔ minimal). Les `preview.png` sont générés depuis les pages réelles. Lancement Chrome réel **non testable sur Mac**.
 - Contact : la veille et le réveil sont vérifiés en démo Playwright sur les deux compteurs. La valeur réelle `ign` (`is_ignition_on`) reste **à confirmer sur le PC** avec `python main.py --debug`.
 
 ### Vérifié sur le PC de l'utilisateur
@@ -247,7 +249,7 @@ Chaque phase est utilisable seule. Ne commencer la suivante que si la précéden
 idashboard/
   core/          schema.py (contrat), config.py, pump.py, server.py,
                  themes.py (palettes, résolution, diffusion), catalog.py,
-                 launcher.py (Chrome --app sur le 7")
+                 launcher.py (Chrome --app sur le 7"), nav_snippet.py
   adapters/      base.py, acevo.py, fake.py  (iracing.py plus tard)
   dashboards/    course/acevo-cluster/  index.html + manifest.json + preview.png
                  course/acevo-minimal/  idem

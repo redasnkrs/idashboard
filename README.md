@@ -38,6 +38,10 @@ tout le compteur passe en gris. Au contact, test des voyants + balayage
 pendant ~2,4 s avant l'affichage normal. Pour tester sans le jeu :
 `?demo&ign=off` (veille) et `?demo&ign=wake` (coupé puis réveil).
 
+Sur le 7" tactile, un balayage vers la gauche passe au compteur suivant, vers
+la droite au précédent (le catalogue boucle). Les flèches ← / → font la même
+chose au clavier. Le balayage est désactivé dans l'aperçu des réglages.
+
 ## Routes
 
 | Route | Contenu |
@@ -76,7 +80,8 @@ peuvent être définis globalement, par jeu, par voiture ou par compteur
 ```
 core/          schema.py (contrat), config.py, pump.py (lecture), server.py,
                themes.py (palettes, résolution, diffusion), catalog.py
-               (catalogue des compteurs), launcher.py (Chrome sur le 7")
+               (catalogue des compteurs), launcher.py (Chrome sur le 7"),
+               nav_snippet.py (balayage tactile entre compteurs)
 adapters/      acevo.py (source du jeu), fake.py (tests), base.py (interface)
 dashboards/    course/acevo-cluster/  compteur complet
                course/acevo-minimal/  compteur minimal

@@ -29,6 +29,7 @@ from core import catalog, launcher, pump, themes
 from core.config import (DEFAULT_DASHBOARD, HOME_FILE, PORT, SETTINGS_FILE,
                          STREAM_HZ, dashboard_asset, dashboard_file,
                          dashboard_manifest, spec_for_path)
+from core.nav_snippet import NAV_HTML
 from core.schema import schema_info
 
 MIME = {
@@ -188,8 +189,9 @@ class Handler(BaseHTTPRequestHandler):
             meta = {key: item.get(key) for key in (
                 "spec", "id", "name", "category", "category_label", "game",
                 "game_id", "schema", "schema_version", "size")}
-        snippet = "<script>window.__IDASH__=%s;</script>" % json.dumps(
-            meta, ensure_ascii=False).replace("</", "<\\/")
+        snippet = "<script>window.__IDASH__=%s;</script>%s" % (
+            json.dumps(meta, ensure_ascii=False).replace("</", "<\\/"),
+            NAV_HTML)
         idx = html.find("</head>")
         html = (html[:idx] + snippet + html[idx:]) if idx >= 0 else \
             snippet + html

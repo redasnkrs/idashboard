@@ -19,6 +19,16 @@ from core.server import serve
 OUT = Path(__file__).resolve().parent / "screenshots"
 THEMES = ("ambre-ivoire", "rouge-sport", "vert")
 
+SWIPE_JS = """(dx) => {
+  const mk = x => new Touch({identifier: 1, target: document.body,
+    clientX: x, clientY: 300, pageX: x, pageY: 300});
+  const ev = (type, touches, changed) => document.dispatchEvent(
+    new TouchEvent(type, {touches, changedTouches: changed,
+                          bubbles: true, cancelable: true}));
+  ev('touchstart', [mk(800)], [mk(800)]);
+  ev('touchend', [], [mk(800 + dx)]);
+}"""
+
 
 def _post(url, payload):
     body = json.dumps(payload).encode()
@@ -131,6 +141,27 @@ def main():
             page.screenshot(path=str(path))
             print(path)
             page.close()
+
+            ctx = browser.new_context(viewport={"width": 1024, "height": 600},
+                                      has_touch=True)
+            page = ctx.new_page()
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            page.goto(base + "/dashboard/course/acevo-cluster?demo",
+                      wait_until="load")
+            page.wait_for_timeout(800)
+            page.evaluate(SWIPE_JS, -150)
+            page.wait_for_timeout(1400)
+            expected = base + "/dashboard/course/acevo-minimal?demo"
+            if page.url != expected:
+                errors.append("swipe gauche: %s" % page.url)
+            else:
+                page.evaluate(SWIPE_JS, 150)
+                page.wait_for_timeout(1400)
+                expected = base + "/dashboard/course/acevo-cluster?demo"
+                if page.url != expected:
+                    errors.append("swipe droite: %s" % page.url)
+            print("swipe:", page.url)
+            ctx.close()
 
             browser.close()
     finally:

@@ -110,6 +110,8 @@ class ServerTest(unittest.TestCase):
         self.assertIn(b"window.__IDASH__", body)
         self.assertIn(b'"spec": "course/acevo-minimal"', body)
         self.assertIn(b'"game_id": "acevo"', body)
+        self.assertIn(b"idash-swipe", body)
+        self.assertIn(b"/api/dashboards", body)
 
     def test_dashboard_asset(self):
         status, ctype, body = self.get(
