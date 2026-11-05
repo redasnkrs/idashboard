@@ -1,0 +1,42 @@
+{
+  "id": "ambre-ivoire",
+  "name": "Ambre / ivoire",
+  "font": "\"Bahnschrift\", \"DIN Alternate\", \"Segoe UI\", system-ui, sans-serif",
+  "units": { "speed": "kmh", "temp": "c" },
+  "blocks": {
+    "car": true, "fuel": true, "water": true, "oil": true,
+    "pressures": true, "telltales": true, "track": true, "lap": true,
+    "best": true, "last": true, "position": true, "aids": true,
+    "shiftlights": true
+  },
+  "colors": {
+    "ink": "#050505",
+    "ivory": "#ece6d6",
+    "muted": "#8a8272",
+    "rule": "#221e17",
+    "off": "#1c1812",
+    "amber": "#ff9a2e",
+    "red": "#ff3b2a",
+    "green": "#3ddc84",
+    "blue": "#3d8bff",
+    "violet": "#c98bff",
+    "dim": "#241f17",
+    "backIn": "#0f0d09",
+    "backOut": "#030303",
+    "faceIn": "#0a0908",
+    "faceMid": "#0b0907",
+    "faceOut": "#17110a",
+    "bezelLight": "#4a4030",
+    "bezelMid": "#1b1710",
+    "bezelDark": "#383024",
+    "needleFrom": "#ff4a1c",
+    "needleTo": "#ffb347",
+    "tachMinor": "#7b7466",
+    "redText": "#ff5a46",
+    "arrowOff": "#15231b",
+    "ledOff": "#17140f",
+    "chipBorder": "#2a251c",
+    "chipActiveBg": "#3a2300",
+    "waitOverlay": "#000000"
+  }
+}

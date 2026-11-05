@@ -11,13 +11,15 @@ Routes (identiques a la version d'origine, plus ``/api/schema``) :
   /api/ets2/telemetry           format « ETS2 Telemetry Server »
 """
 import json
+import queue
 import socket
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
-from core import pump
-from core.config import (DEFAULT_DASHBOARD, PORT, STREAM_HZ, dashboard_file,
-                         dashboard_manifest)
+from core import pump, themes
+from core.config import (DEFAULT_DASHBOARD, PORT, SETTINGS_FILE, STREAM_HZ,
+                         dashboard_file, dashboard_manifest)
 from core.schema import schema_info
 
 
@@ -49,6 +51,24 @@ class Handler(BaseHTTPRequestHandler):
             self._send(pump.STATE["dash"], "application/json")
         elif path == "/api/schema":
             self._send(json.dumps(schema_info()).encode(), "application/json")
+        elif path == "/api/themes":
+            info = {
+                "active": themes.load_state().get("active"),
+                "revision": themes.revision(),
+                "themes": themes.load_themes(),
+                "state": themes.load_state(),
+            }
+            self._send(json.dumps(info).encode(), "application/json")
+        elif path == "/api/themes/active":
+            query = parse_qs(urlparse(self.path).query)
+            game = (query.get("game") or [None])[0]
+            car = (query.get("car") or [None])[0]
+            self._send(json.dumps(themes.resolve(game, car)).encode(),
+                       "application/json")
+        elif path == "/api/themes/stream":
+            self._theme_stream()
+        elif path == "/settings":
+            self._file(SETTINGS_FILE, "text/html; charset=utf-8")
         elif path == "/dashboard" or path.startswith("/dashboard/"):
             self._dashboard(path)
         elif path == "/stream":
@@ -56,7 +76,12 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.send_error(404)
 
-    do_POST = do_GET
+    def do_POST(self):
+        path = self.path.split("?")[0].rstrip("/")
+        if path == "/api/themes":
+            self._save_theme()
+        else:
+            self.send_error(405)
 
     def _dashboard(self, path):
         spec = path[len("/dashboard/"):] if path.startswith("/dashboard/") \
@@ -73,6 +98,52 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
         else:
             self._file(target, "text/html; charset=utf-8")
+
+    def _save_theme(self):
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = 0
+        if length <= 0 or length > 65536:
+            self.send_error(400)
+            return
+        try:
+            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            themes.update(payload)
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            body = json.dumps({"ok": False, "error": str(exc)}).encode()
+            self._send(body, "application/json", 400)
+            return
+        body = json.dumps({"ok": True,
+                           "revision": themes.revision()}).encode()
+        self._send(body, "application/json")
+
+    def _theme_stream(self):
+        """Pousse seulement le numero de revision du theme."""
+        q = themes.subscribe()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.close_connection = True
+        try:
+            self.wfile.write(
+                ("data: {\"v\": %d}\n\n" % themes.revision()).encode())
+            self.wfile.flush()
+            while True:
+                try:
+                    rev = q.get(timeout=20)
+                except queue.Empty:
+                    self.wfile.write(b": ping\n\n")
+                    self.wfile.flush()
+                    continue
+                self.wfile.write(("data: {\"v\": %d}\n\n" % rev).encode())
+                self.wfile.flush()
+        except OSError:
+            pass
+        finally:
+            themes.unsubscribe(q)
 
     def _stream(self):
         """Flux SSE : un message toutes les 1/STREAM_HZ s (aussi heartbeat)."""

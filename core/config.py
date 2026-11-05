@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DASHBOARDS_DIR = ROOT / "dashboards"
+SETTINGS_FILE = ROOT / "settings" / "index.html"
 
 PORT = int(os.environ.get("IDASH_PORT", "25555"))
 POLL_HZ = int(os.environ.get("IDASH_POLL_HZ", "60"))

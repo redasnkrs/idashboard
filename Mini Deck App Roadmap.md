@@ -25,7 +25,7 @@ Dépôt Git : `github.com/redasnkrs/idashboard` (privé). Sur le PC de jeu, on
 clone le dépôt (`C:\MapDeck\` ou ailleurs) puis on lance `lancer.bat` (ou
 `python main.py`).
 
-Structure après la Phase 1 :
+Structure après la Phase 2 :
 
 | Chemin | Rôle |
 |---|---|
@@ -34,15 +34,19 @@ Structure après la Phase 1 :
 | `core/config.py` | Port, fréquences, chemins, résolution des tableaux de bord. |
 | `core/pump.py` | Boucle de lecture 60 Hz et état partagé. |
 | `core/server.py` | Serveur HTTP + flux SSE. |
+| `core/themes.py` | Palettes, résolution par jeu/voiture, sauvegarde, diffusion. |
 | `adapters/acevo.py` | Source AC Evo (mémoire partagée, structures `ctypes`). |
 | `adapters/fake.py` | Fausse source animée pour Mac/Linux/tests. |
 | `adapters/base.py` | Interface commune des sources (`read()`, `ets2()`). |
 | `dashboards/course/acevo-cluster/` | `index.html` + `manifest.json` + `preview.png` (compteur à aiguille centrale). |
+| `settings/index.html` | Page de réglages avec aperçu live. |
+| `themes/*.json` | `ambre-ivoire`, `rouge-sport`, `vert`. `active.json` = choix utilisateur (hors git). |
 | `acevo_bridge.py` | Ancien nom, conservé en compatibilité (`python acevo_bridge.py`). |
 | `lancer.bat` | Lancement double-clic sous Windows. |
 
-Fichiers de l'ancienne version encore absents du dépôt : `dashboard_twin.html`,
-`map.ps1`, `close.ps1` (à importer depuis le PC).
+Fichiers de l'ancienne version qui n'existent pas et ne sont donc pas dans le
+dépôt : `dashboard_twin.html` et `close.ps1`. `map.ps1` reste à importer s'il
+est utilisé sur le PC.
 
 ### 3.1 Le pont (`core/` + `adapters/`)
 
@@ -57,9 +61,13 @@ Fichiers de l'ancienne version encore absents du dépôt : `dashboard_twin.html`
 | `/dashboard/<catégorie>/<nom>` | Sert `dashboards/<catégorie>/<nom>/index.html`. `/dashboard/<nom>` marche aussi si le nom est unique. Ajouter un dossier suffit à ajouter un tableau de bord. |
 | `/dashboard/<catégorie>/<nom>/manifest.json` | Métadonnées du tableau de bord (nom, catégorie, jeu, taille, contrats). |
 | `/dashboard?demo` ou `?demo=<secondes>` | Même page avec des données simulées, sans le jeu (marche aussi sur `/dashboard/<nom>`). |
+| `/settings` | Page de réglages (couleurs, unités, blocs) avec aperçu live. |
 | `/stream` | Flux SSE, un message `data: <json>` toutes les 1/60 s (sert aussi de heartbeat). |
 | `/api/dash` | Dernier état au format du tableau de bord (JSON). |
 | `/api/schema` | Version et description du contrat de données. |
+| `/api/themes` | `GET` : palettes + état ; `POST` : enregistre un thème (global, jeu ou voiture). |
+| `/api/themes/active` | Thème effectif, résolu avec `?game=…&car=…`. |
+| `/api/themes/stream` | SSE : numéro de révision ; les pages rechargent leur thème, sans rechargement de page. |
 | `/api/ets2/telemetry` (et `/`) | Format du « ETS2 Telemetry Server », pour le plugin Macro Deck si besoin. |
 
 ### 3.2 Le tableau de bord (`dashboards/course/acevo-cluster/index.html`)
@@ -74,8 +82,7 @@ Fichiers de l'ancienne version encore absents du dépôt : `dashboard_twin.html`
 - Rendu : un `requestAnimationFrame`, lissage exponentiel des valeurs (RPM, vitesse, pédales), écriture dans le DOM uniquement quand une valeur change.
 - Police : **Bahnschrift** (présente sur Windows 10/11), avec police de secours.
 - Style : fond noir, chiffres ivoire, aiguille et anneau ambre, zone rouge ; pas de cartes arrondies, colonnes ouvertes séparées par des filets.
-
-> **Dette connue** : les couleurs sont définies à trois endroits (variables CSS `:root`, objet `C` en JavaScript, et quelques valeurs en dur dans le SVG comme `#15231b`). C'est la première chose à centraliser pour permettre les thèmes (Phase 2).
+- **Thème** : toutes les couleurs viennent de `themes/*.json` (variables CSS, objet `C` en JavaScript, dégradés SVG et valeurs des composants). La page charge `/api/themes/active`, écoute `/api/themes/stream` et applique les changements à chaud. Les unités (km/h ↔ mph, °C ↔ °F) et les blocs visibles (`car`, `fuel`, `water`, …) viennent aussi du thème.
 
 ## 4. Contrat de données (format `/stream` et `/api/dash`)
 
@@ -122,7 +129,10 @@ Le format `/api/ets2/telemetry` est un second format, indépendant, calqué sur 
 ### Vérifié hors jeu (Mac, fausse source)
 - Phase 1 : les 16 tests passent (`python -m unittest discover -s tests -v`) et les captures Playwright 1024x600 / 1024x560 montrent le même design qu'avant.
 - `core/schema.py` valide la sortie de `adapters/fake.py` et l'état déconnecté `{"c": false}`.
-- Reste à confirmer sur le PC Windows avec le jeu : `python main.py` lit la vraie source et sert le tableau de bord depuis la nouvelle structure.
+- Phase 2 : 27 tests passent. Captures Playwright des 3 thèmes à 1024x600 et 1024x560. Une couleur changée dans `/settings` est enregistrée et appliquée dans l'aperçu sans rechargement (vérifié via Playwright, aucune erreur JS). Unités mph/°F et masquage de blocs vérifiés.
+
+### Vérifié sur le PC de l'utilisateur
+- 2026-11-05 : après `git pull`, `lancer.bat` démarre le pont et le compteur s'affiche correctement sur le 7" depuis la nouvelle structure (vraie source AC Evo). Phase 1 confirmée.
 
 ### Pas vérifié valeur par valeur (layout issu de `kerb`, lecture cohérente mais à confirmer)
 Nom de la voiture et du circuit, temps au tour (dernier, meilleur, delta), position, niveaux TC/ABS, balance de freinage, températures d'eau et d'huile, frein à main, voie des stands. Pour confirmer : lancer `python acevo_bridge.py --debug` et regarder la ligne affichée toutes les 0,5 s.
@@ -158,15 +168,15 @@ Chaque phase est utilisable seule. Ne commencer la suivante que si la précéden
 - [x] Séparer le pont en : source AC Evo, serveur HTTP, configuration
 - [x] Ajouter des tests : fausse source + captures Playwright à 1024x600 et 1024x560
 - [x] `README.md` d'installation et de lancement (un `.bat` double-cliquable)
-- **Terminé quand** : les tests passent, le tableau de bord se lance depuis la nouvelle structure sans rien changer visuellement. *(vérifié hors jeu ; à confirmer sur le PC)*
+- **Terminé quand** : les tests passent, le tableau de bord se lance depuis la nouvelle structure sans rien changer visuellement. *(confirmé sur le PC le 2026-11-05)*
 
-### Phase 2 : thèmes et réglages (sans toucher au HTML)
-- [ ] **Centraliser toutes les couleurs** dans un objet de thème unique (variables CSS + JS lisant les mêmes valeurs), supprimer les valeurs en dur
-- [ ] Format de thème en JSON : couleurs, police, unités (km/h ↔ mph, °C ↔ °F), blocs à afficher ou masquer
-- [ ] Route `/api/themes` (lire / enregistrer) ; le tableau de bord charge le thème au démarrage et l'applique en direct
-- [ ] Page de réglages (`/settings`) : sélecteurs de couleur, aperçu en direct, enregistrement par jeu et par voiture
-- [ ] 3 thèmes fournis : ambre/ivoire (actuel), rouge sport, vert
-- **Terminé quand** : on change une couleur dans la page de réglages et le 7" se met à jour sans rechargement manuel ni édition de fichier.
+### Phase 2 : thèmes et réglages (sans toucher au HTML) ✅
+- [x] **Centraliser toutes les couleurs** dans un objet de thème unique (variables CSS + JS lisant les mêmes valeurs), supprimer les valeurs en dur
+- [x] Format de thème en JSON : couleurs, police, unités (km/h ↔ mph, °C ↔ °F), blocs à afficher ou masquer
+- [x] Route `/api/themes` (lire / enregistrer) ; le tableau de bord charge le thème au démarrage et l'applique en direct
+- [x] Page de réglages (`/settings`) : sélecteurs de couleur, aperçu en direct, enregistrement par jeu et par voiture
+- [x] 3 thèmes fournis : ambre/ivoire (actuel), rouge sport, vert
+- **Terminé quand** : on change une couleur dans la page de réglages et le 7" se met à jour sans rechargement manuel ni édition de fichier. *(vérifié hors jeu ; à confirmer sur le PC)*
 
 ### Phase 3 : le lanceur
 - [ ] Détection automatique du mini écran (par résolution 1024x600, ou choix dans les réglages) : plus de X/Y à la main
@@ -207,15 +217,19 @@ Chaque phase est utilisable seule. Ne commencer la suivante que si la précéden
 - Enregistrement de la télémétrie en fichier pour comparer les tours
 - Publication GitHub propre (README avec captures, licence, release)
 
-### Arborescence actuelle (après Phase 1)
+### Arborescence actuelle (après Phase 2)
 
 ```
 idashboard/
-  core/          schema.py (contrat), config.py, pump.py, server.py
+  core/          schema.py (contrat), config.py, pump.py, server.py,
+                 themes.py (palettes, résolution, diffusion)
   adapters/      base.py, acevo.py, fake.py  (iracing.py plus tard)
   dashboards/    course/acevo-cluster/  index.html + manifest.json + preview.png
                  aviation/…  (plus tard : un dossier par catégorie, un sous-dossier par compteur)
-  tests/         test_schema.py, test_server.py, visual_check.py
+  settings/      index.html (réglages + aperçu live)
+  themes/        ambre-ivoire.json, rouge-sport.json, vert.json
+                 active.json (choix utilisateur, hors git)
+  tests/         test_schema.py, test_server.py, test_themes.py, visual_check.py
   main.py        point d'entrée
   acevo_bridge.py  compatibilité (ancien nom)
   lancer.bat
@@ -223,8 +237,7 @@ idashboard/
   Mini Deck App Roadmap.md
 ```
 
-Dossiers prévus plus tard : `themes/` (Phase 2), `launcher/` (Phase 3),
-`app/` (Phase 6).
+Dossiers prévus plus tard : `launcher/` (Phase 3), `app/` (Phase 6).
 
 ## 8. Règles pour les IA qui travaillent sur ce projet
 

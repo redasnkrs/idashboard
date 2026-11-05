@@ -34,17 +34,34 @@ dans un navigateur.
 | `/dashboard` | tableau de bord par défaut |
 | `/dashboard/<catégorie>/<nom>` | tableau de bord précis (dossier) |
 | `/dashboard/<nom>` | raccourci si le nom est unique |
+| `/settings` | page de réglages (couleurs, unités, blocs) avec aperçu live |
 | `/stream` | flux SSE à 60 Hz |
 | `/api/dash` | dernier état (contrat commun) |
 | `/api/schema` | version et description du contrat |
+| `/api/themes` | thèmes disponibles + état (GET), enregistrement (POST) |
+| `/api/themes/active` | thème effectif (`?game=…&car=…`) |
+| `/api/themes/stream` | SSE : numéro de révision du thème |
 | `/api/ets2/telemetry` | format « ETS2 Telemetry Server » (Macro Deck) |
+
+## Thèmes et réglages
+
+Ouvre `http://localhost:25555/settings` depuis l'écran principal : les
+changements de couleur, d'unités (km/h ↔ mph, °C ↔ °F) et de blocs visibles
+sont enregistrés et appliqués en direct sur le 7" (sans rechargement).
+
+Les palettes sont dans `themes/*.json` (ambre/ivoire, rouge sport, vert). Les
+choix de l'utilisateur vont dans `themes/active.json` (ignoré par git) et
+peuvent être définis globalement, par jeu ou par voiture.
 
 ## Structure
 
 ```
-core/          schema.py (contrat), config.py, pump.py (lecture), server.py
+core/          schema.py (contrat), config.py, pump.py (lecture), server.py,
+               themes.py (palettes, résolution, diffusion)
 adapters/      acevo.py (source du jeu), fake.py (tests), base.py (interface)
-dashboards/    course/acevo-cluster/  index.html + manifest.json
+dashboards/    course/acevo-cluster/  index.html + manifest.json + preview.png
+settings/      index.html (page de réglages)
+themes/        ambre-ivoire.json, rouge-sport.json, vert.json
 tests/         tests unitaires et captures Playwright
 main.py        point d'entrée
 acevo_bridge.py  ancien nom (compatibilité)

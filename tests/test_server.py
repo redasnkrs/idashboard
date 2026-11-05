@@ -1,11 +1,13 @@
 import http.client
 import json
+import tempfile
 import threading
 import time
 import unittest
+from pathlib import Path
 
 from adapters.fake import FakeSource
-from core import pump
+from core import pump, themes
 from core.schema import validate
 from core.server import serve
 
@@ -13,6 +15,9 @@ from core.server import serve
 class ServerTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.old_state = themes.STATE_FILE
+        themes.STATE_FILE = Path(cls.tmp.name) / "active.json"
         threading.Thread(target=pump.poll_loop, args=(FakeSource(), False),
                          daemon=True).start()
         cls.server = serve(0)
@@ -23,6 +28,8 @@ class ServerTest(unittest.TestCase):
     def tearDownClass(cls):
         cls.server.shutdown()
         cls.server.server_close()
+        themes.STATE_FILE = cls.old_state
+        cls.tmp.cleanup()
 
     def get(self, path, timeout=5):
         conn = http.client.HTTPConnection("127.0.0.1", self.port,
@@ -32,6 +39,17 @@ class ServerTest(unittest.TestCase):
         body = resp.read()
         conn.close()
         return resp.status, resp.getheader("Content-Type") or "", body
+
+    def post(self, path, payload, timeout=5):
+        body = json.dumps(payload).encode()
+        conn = http.client.HTTPConnection("127.0.0.1", self.port,
+                                          timeout=timeout)
+        conn.request("POST", path, body=body,
+                     headers={"Content-Type": "application/json"})
+        resp = conn.getresponse()
+        data = resp.read()
+        conn.close()
+        return resp.status, data
 
     def wait_for_game(self):
         deadline = time.time() + 3
@@ -104,6 +122,48 @@ class ServerTest(unittest.TestCase):
         payload = json.loads(body)
         self.assertTrue(payload["game"]["connected"])
         self.assertIn("truck", payload)
+
+    def test_themes_list(self):
+        status, _, body = self.get("/api/themes")
+        self.assertEqual(200, status)
+        info = json.loads(body)
+        self.assertIn("ambre-ivoire", info["themes"])
+        self.assertIn("state", info)
+
+    def test_theme_active(self):
+        status, _, body = self.get("/api/themes/active?game=acevo")
+        self.assertEqual(200, status)
+        theme = json.loads(body)
+        self.assertIn("colors", theme)
+        self.assertIn("blocks", theme)
+
+    def test_save_theme(self):
+        status, body = self.post("/api/themes", {
+            "scope": "global",
+            "active": "vert",
+            "overrides": {
+                "colors": {"amber": "#00ff00"},
+                "units": {"speed": "mph"},
+                "blocks": {"fuel": False},
+            },
+        })
+        self.assertEqual(200, status)
+        self.assertTrue(json.loads(body)["ok"])
+        _, _, raw = self.get("/api/themes/active")
+        theme = json.loads(raw)
+        self.assertEqual("vert", theme["id"])
+        self.assertEqual("#00ff00", theme["colors"]["amber"])
+        self.assertEqual("mph", theme["units"]["speed"])
+
+    def test_save_theme_rejects_bad_payload(self):
+        status, _ = self.post("/api/themes", {"active": "nope"})
+        self.assertEqual(400, status)
+
+    def test_settings_page(self):
+        status, ctype, body = self.get("/settings")
+        self.assertEqual(200, status)
+        self.assertIn("text/html", ctype)
+        self.assertIn(b"R\xc3\xa9glages", body)
 
 
 if __name__ == "__main__":

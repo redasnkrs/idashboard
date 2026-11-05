@@ -24,3 +24,7 @@ Thumbs.db
 screenshots/
 tests/screenshots/
 test-results/
+
+# Réglages utilisateur (thème actif)
+themes/active.json
+themes/*.tmp

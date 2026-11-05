@@ -1,0 +1,42 @@
+{
+  "id": "rouge-sport",
+  "name": "Rouge sport",
+  "font": "\"Bahnschrift\", \"DIN Alternate\", \"Segoe UI\", system-ui, sans-serif",
+  "units": { "speed": "kmh", "temp": "c" },
+  "blocks": {
+    "car": true, "fuel": true, "water": true, "oil": true,
+    "pressures": true, "telltales": true, "track": true, "lap": true,
+    "best": true, "last": true, "position": true, "aids": true,
+    "shiftlights": true
+  },
+  "colors": {
+    "ink": "#0a0404",
+    "ivory": "#f2e9e4",
+    "muted": "#9a7f78",
+    "rule": "#2a1614",
+    "off": "#241210",
+    "amber": "#ff4d3d",
+    "red": "#ff2a1a",
+    "green": "#4dffa0",
+    "blue": "#4d8bff",
+    "violet": "#ff7ad9",
+    "dim": "#2a1512",
+    "backIn": "#160606",
+    "backOut": "#050202",
+    "faceIn": "#120505",
+    "faceMid": "#140606",
+    "faceOut": "#24100c",
+    "bezelLight": "#5a2a20",
+    "bezelMid": "#1f0d0a",
+    "bezelDark": "#46201a",
+    "needleFrom": "#ff2a1a",
+    "needleTo": "#ff8a6a",
+    "tachMinor": "#7d5a52",
+    "redText": "#ff6a5a",
+    "arrowOff": "#23120f",
+    "ledOff": "#1d100d",
+    "chipBorder": "#3a201a",
+    "chipActiveBg": "#4a1008",
+    "waitOverlay": "#000000"
+  }
+}
