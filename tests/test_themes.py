@@ -50,11 +50,26 @@ class ThemesTest(unittest.TestCase):
         themes.update({"scope": "car", "key": "FERRARI 296 GT3",
                        "active": "rouge-sport",
                        "overrides": {"colors": {"amber": "#123456"}}})
-        theme = themes.resolve("acevo", "FERRARI 296 GT3")
-        self.assertEqual("rouge-sport", theme["id"])
+        themes.update({"scope": "dashboard", "key": "course/acevo-cluster",
+                       "active": "vert",
+                       "overrides": {"colors": {"amber": "#abcdef"}}})
+        theme = themes.resolve(dashboard="course/acevo-cluster",
+                               game="acevo", car="FERRARI 296 GT3")
+        self.assertEqual("vert", theme["id"])
         self.assertEqual("#000001", theme["colors"]["ink"])
         self.assertEqual("#ffffff", theme["colors"]["ivory"])
-        self.assertEqual("#123456", theme["colors"]["amber"])
+        self.assertEqual("#abcdef", theme["colors"]["amber"])
+
+    def test_dashboard_scope_reset(self):
+        themes.update({"scope": "car", "key": "FERRARI 296 GT3",
+                       "active": "rouge-sport"})
+        themes.update({"scope": "dashboard", "key": "course/acevo-cluster",
+                       "active": "vert"})
+        self.assertEqual("vert", themes.resolve(
+            dashboard="course/acevo-cluster", car="FERRARI 296 GT3")["id"])
+        themes.reset_scope("dashboard", "course/acevo-cluster")
+        self.assertEqual("rouge-sport", themes.resolve(
+            dashboard="course/acevo-cluster", car="FERRARI 296 GT3")["id"])
 
     def test_sanitize(self):
         clean = themes.sanitize_overrides({

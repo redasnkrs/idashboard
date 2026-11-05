@@ -411,13 +411,16 @@
   const params = new URLSearchParams(location.search);
   const demo = params.has('demo');
   const demoOffset = Number(params.get('demo')) || 0;
-  const GAME = params.has('nogame') ? null : (params.get('game') || 'acevo');
+  const META = window.__IDASH__ || {};
+  const DASHBOARD = params.has('nodash') ? null : (params.get('dashboard') || META.spec || null);
+  const GAME = params.has('nogame') ? null : (params.get('game') || META.game_id || 'acevo');
   const CAR_PARAM = params.get('car');
   const HTTP = location.protocol === 'http:' || location.protocol === 'https:';
   let tgt = { c: false }, lastMsg = 0, themeCar = null;
 
   function fetchTheme() {
     const query = [];
+    if (DASHBOARD) query.push('dashboard=' + encodeURIComponent(DASHBOARD));
     if (GAME) query.push('game=' + encodeURIComponent(GAME));
     const car = CAR_PARAM || themeCar;
     if (car) query.push('car=' + encodeURIComponent(car));

@@ -1,26 +1,46 @@
 """Serveur HTTP local du pont.
 
-Routes (identiques a la version d'origine, plus ``/api/schema``) :
+Routes principales :
 
-  /dashboard                    tableau de bord par defaut
-  /dashboard/<categorie>/<nom>  un tableau de bord precis (dossier)
-  /dashboard/<nom>              raccourci si le nom est unique
-  /stream                       flux SSE a STREAM_HZ
-  /api/dash                     dernier etat (contrat commun)
-  /api/schema                   version et description du contrat
-  /api/ets2/telemetry           format « ETS2 Telemetry Server »
+  /                              accueil (catalogue des compteurs)
+  /dashboard                     redirige vers le compteur par defaut
+  /dashboard/<categorie>/<nom>   un tableau de bord precis
+  /settings                      reglages (global / jeu / voiture / compteur)
+  /stream                        flux telemetrie SSE a STREAM_HZ
+  /api/dash                      dernier etat (contrat commun)
+  /api/dashboards                catalogue des compteurs
+  /api/schema                    version et description du contrat
+  /api/themes                    palettes + etat (GET) / enregistrement (POST)
+  /api/themes/active             theme effectif
+  /api/themes/stream             SSE : revision du theme
+  /api/themes/reset              reinitialise une portee (POST)
+  /api/launch                    ouvre un compteur sur le mini ecran (POST)
+  /api/ets2/telemetry            format « ETS2 Telemetry Server »
 """
 import json
 import queue
 import socket
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from core import pump, themes
-from core.config import (DEFAULT_DASHBOARD, PORT, SETTINGS_FILE, STREAM_HZ,
-                         dashboard_file, dashboard_manifest)
+from core import catalog, launcher, pump, themes
+from core.config import (DEFAULT_DASHBOARD, HOME_FILE, PORT, SETTINGS_FILE,
+                         STREAM_HZ, dashboard_asset, dashboard_file,
+                         dashboard_manifest, spec_for_path)
 from core.schema import schema_info
+
+MIME = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".svg": "image/svg+xml",
+    ".css": "text/css; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+    ".json": "application/json",
+    ".html": "text/html; charset=utf-8",
+}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -42,34 +62,76 @@ class Handler(BaseHTTPRequestHandler):
         except OSError:
             self._send(b"Fichier introuvable", "text/plain; charset=utf-8", 404)
 
+    def _redirect(self, location, code=302):
+        self.send_response(code)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def _read_json(self):
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = 0
+        if length <= 0 or length > 65536:
+            raise ValueError("corps JSON manquant ou trop grand")
+        data = json.loads(self.rfile.read(length).decode("utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("objet JSON attendu")
+        return data
+
     def do_GET(self):
         path = self.path.split("?")[0].rstrip("/")
-        if path in ("/api/ets2/telemetry", ""):
+        if path == "/api/ets2/telemetry":
             self._send(json.dumps(pump.STATE["ets2"]).encode(),
                        "application/json")
+        elif path in ("", "/home"):
+            self._file(HOME_FILE, "text/html; charset=utf-8")
         elif path == "/api/dash":
             self._send(pump.STATE["dash"], "application/json")
+        elif path == "/api/dashboards":
+            items = catalog.list_dashboards()
+            categories = []
+            seen = set()
+            for item in items:
+                if item["category"] not in seen:
+                    seen.add(item["category"])
+                    categories.append({"id": item["category"],
+                                       "label": item["category_label"]})
+            default = catalog.default_dashboard()
+            self._send(json.dumps({
+                "dashboards": items,
+                "categories": categories,
+                "default": default["spec"] if default else None,
+            }).encode(), "application/json")
         elif path == "/api/schema":
             self._send(json.dumps(schema_info()).encode(), "application/json")
         elif path == "/api/themes":
+            state = themes.load_state()
             info = {
-                "active": themes.load_state().get("active"),
+                "active": state.get("active"),
                 "revision": themes.revision(),
                 "themes": themes.load_themes(),
-                "state": themes.load_state(),
+                "state": state,
             }
             self._send(json.dumps(info).encode(), "application/json")
         elif path == "/api/themes/active":
             query = parse_qs(urlparse(self.path).query)
-            game = (query.get("game") or [None])[0]
-            car = (query.get("car") or [None])[0]
-            self._send(json.dumps(themes.resolve(game, car)).encode(),
-                       "application/json")
+            get = lambda key: (query.get(key) or [None])[0]
+            self._send(json.dumps(themes.resolve(
+                dashboard=get("dashboard"), game=get("game"),
+                car=get("car"))).encode(), "application/json")
         elif path == "/api/themes/stream":
             self._theme_stream()
         elif path == "/settings":
             self._file(SETTINGS_FILE, "text/html; charset=utf-8")
-        elif path == "/dashboard" or path.startswith("/dashboard/"):
+        elif path == "/dashboard":
+            query = self.path.partition("?")[2]
+            location = "/dashboard/%s" % DEFAULT_DASHBOARD
+            if query:
+                location += "?" + query
+            self._redirect(location)
+        elif path.startswith("/dashboard/"):
             self._dashboard(path)
         elif path == "/stream":
             self._stream()
@@ -80,36 +142,62 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0].rstrip("/")
         if path == "/api/themes":
             self._save_theme()
+        elif path == "/api/themes/reset":
+            self._reset_theme()
+        elif path == "/api/launch":
+            self._launch()
         else:
             self.send_error(405)
 
     def _dashboard(self, path):
-        spec = path[len("/dashboard/"):] if path.startswith("/dashboard/") \
-            else DEFAULT_DASHBOARD
-        if spec.endswith("/manifest.json"):
-            manifest = dashboard_manifest(spec[:-len("/manifest.json")])
+        parts = path[len("/dashboard/"):].split("/")
+        if parts and parts[-1] == "manifest.json":
+            spec = "/".join(parts[:-1])
+            manifest = dashboard_manifest(spec)
             if manifest is None:
                 self.send_error(404)
             else:
                 self._file(manifest, "application/json")
             return
-        target = dashboard_file(spec)
+        if len(parts) >= 3:
+            spec = "/".join(parts[:2])
+            name = "/".join(parts[2:])
+            asset = dashboard_asset(spec, name)
+            if asset is None:
+                self.send_error(404)
+            else:
+                self._file(asset, MIME.get(asset.suffix.lower(),
+                                           "application/octet-stream"))
+            return
+        target = dashboard_file("/".join(parts))
         if target is None:
             self.send_error(404)
         else:
-            self._file(target, "text/html; charset=utf-8")
+            self._serve_dashboard(target)
+
+    def _serve_dashboard(self, target):
+        spec = spec_for_path(target)
+        item = catalog.find(spec) if spec else None
+        try:
+            html = target.read_text(encoding="utf-8")
+        except OSError:
+            self.send_error(404)
+            return
+        meta = {}
+        if item:
+            meta = {key: item.get(key) for key in (
+                "spec", "id", "name", "category", "category_label", "game",
+                "game_id", "schema", "schema_version", "size")}
+        snippet = "<script>window.__IDASH__=%s;</script>" % json.dumps(
+            meta, ensure_ascii=False).replace("</", "<\\/")
+        idx = html.find("</head>")
+        html = (html[:idx] + snippet + html[idx:]) if idx >= 0 else \
+            snippet + html
+        self._send(html.encode("utf-8"), "text/html; charset=utf-8")
 
     def _save_theme(self):
         try:
-            length = int(self.headers.get("Content-Length") or 0)
-        except ValueError:
-            length = 0
-        if length <= 0 or length > 65536:
-            self.send_error(400)
-            return
-        try:
-            payload = json.loads(self.rfile.read(length).decode("utf-8"))
-            themes.update(payload)
+            themes.update(self._read_json())
         except (ValueError, KeyError, TypeError, AttributeError) as exc:
             body = json.dumps({"ok": False, "error": str(exc)}).encode()
             self._send(body, "application/json", 400)
@@ -117,6 +205,36 @@ class Handler(BaseHTTPRequestHandler):
         body = json.dumps({"ok": True,
                            "revision": themes.revision()}).encode()
         self._send(body, "application/json")
+
+    def _reset_theme(self):
+        try:
+            payload = self._read_json()
+            themes.reset_scope(payload.get("scope") or "global",
+                               str(payload.get("key") or "").strip())
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            body = json.dumps({"ok": False, "error": str(exc)}).encode()
+            self._send(body, "application/json", 400)
+            return
+        self._send(json.dumps({"ok": True,
+                               "revision": themes.revision()}).encode(),
+                   "application/json")
+
+    def _launch(self):
+        try:
+            payload = self._read_json()
+        except (ValueError, KeyError, TypeError) as exc:
+            self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
+                       "application/json", 400)
+            return
+        item = catalog.find(str(payload.get("dashboard") or ""))
+        if item is None:
+            self._send(json.dumps({"ok": False,
+                                   "error": "compteur inconnu"}).encode(),
+                       "application/json", 400)
+            return
+        result = launcher.open_dashboard(item["spec"])
+        self._send(json.dumps(result).encode(), "application/json",
+                   200 if result.get("ok") else 500)
 
     def _theme_stream(self):
         """Pousse seulement le numero de revision du theme."""
@@ -174,7 +292,6 @@ def serve(port=PORT):
     actual = server.server_address[1]
     try:
         server6 = V6Server(("::1", actual), Handler)
-        import threading
         threading.Thread(target=server6.serve_forever, daemon=True).start()
     except OSError:
         pass  # IPv6 indisponible : IPv4 seul suffit

@@ -73,10 +73,67 @@ class ServerTest(unittest.TestCase):
         self.assertIn("v", info["keys"])
 
     def test_dashboard_default(self):
-        status, ctype, body = self.get("/dashboard")
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        conn.request("GET", "/dashboard?demo")
+        resp = conn.getresponse()
+        resp.read()
+        self.assertEqual(302, resp.status)
+        location = resp.getheader("Location")
+        self.assertEqual("/dashboard/course/acevo-cluster?demo", location)
+        conn.close()
+        status, ctype, body = self.get(location)
         self.assertEqual(200, status)
         self.assertIn("text/html", ctype)
         self.assertIn(b'viewBox="0 0 1024 600"', body)
+
+    def test_home_page(self):
+        status, ctype, body = self.get("/")
+        self.assertEqual(200, status)
+        self.assertIn("text/html", ctype)
+        self.assertIn("Choisis ton compteur".encode(), body)
+
+    def test_api_dashboards(self):
+        status, _, body = self.get("/api/dashboards")
+        self.assertEqual(200, status)
+        data = json.loads(body)
+        specs = {item["spec"] for item in data["dashboards"]}
+        self.assertEqual({"course/acevo-cluster", "course/acevo-minimal"},
+                         specs)
+        self.assertEqual("course/acevo-cluster", data["default"])
+        for item in data["dashboards"]:
+            self.assertTrue(item["preview_url"])
+            self.assertTrue(item["settings_url"].startswith("/settings"))
+
+    def test_dashboard_injects_meta(self):
+        status, _, body = self.get("/dashboard/course/acevo-minimal")
+        self.assertEqual(200, status)
+        self.assertIn(b"window.__IDASH__", body)
+        self.assertIn(b'"spec": "course/acevo-minimal"', body)
+        self.assertIn(b'"game_id": "acevo"', body)
+
+    def test_dashboard_asset(self):
+        status, ctype, body = self.get(
+            "/dashboard/course/acevo-cluster/preview.png")
+        self.assertEqual(200, status)
+        self.assertIn("image/png", ctype)
+        self.assertTrue(body.startswith(b"\x89PNG"))
+
+    def test_launch_rejects_unknown_dashboard(self):
+        status, body = self.post("/api/launch", {"dashboard": "nope"})
+        self.assertEqual(400, status)
+        self.assertFalse(json.loads(body)["ok"])
+
+    def test_theme_reset(self):
+        self.post("/api/themes", {"scope": "game", "key": "acevo",
+                                  "overrides": {"colors": {"ink": "#0a0b0c"}}})
+        _, _, raw = self.get("/api/themes/active?game=acevo")
+        self.assertEqual("#0a0b0c", json.loads(raw)["colors"]["ink"])
+        status, body = self.post("/api/themes/reset",
+                                 {"scope": "game", "key": "acevo"})
+        self.assertEqual(200, status)
+        self.assertTrue(json.loads(body)["ok"])
+        _, _, raw = self.get("/api/themes/active?game=acevo")
+        self.assertNotEqual("#0a0b0c", json.loads(raw)["colors"]["ink"])
 
     def test_dashboard_named_and_shortcut(self):
         for path in ("/dashboard/course/acevo-cluster",
@@ -96,6 +153,11 @@ class ServerTest(unittest.TestCase):
 
     def test_unknown_dashboard(self):
         status, _, body = self.get("/dashboard/does-not-exist")
+        self.assertEqual(404, status)
+        status, _, body = self.get("/dashboard/../config.py")
+        self.assertEqual(404, status)
+        status, _, body = self.get(
+            "/dashboard/course/acevo-cluster/../acevo-minimal/index.html")
         self.assertEqual(404, status)
 
     def test_stream(self):

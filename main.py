@@ -40,9 +40,10 @@ def main(argv=None):
                      daemon=True).start()
     server = serve(args.port)
     port = server.server_address[1]
-    print(f"Tableau de bord : http://localhost:{port}/dashboard")
-    print(f"Apercu sans jeu : http://localhost:{port}/dashboard?demo")
-    print(f"Plugin Macro Deck : http://localhost:{port}/api/ets2/telemetry")
+    print(f"Accueil          : http://localhost:{port}/")
+    print(f"Compteur defaut  : http://localhost:{port}/dashboard")
+    print(f"Apercu sans jeu  : http://localhost:{port}/dashboard?demo")
+    print(f"Plugin Macro Deck: http://localhost:{port}/api/ets2/telemetry")
     if not args.fake:
         print("Lance AC Evo (en session). Ctrl+C pour quitter.")
     else:

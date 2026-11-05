@@ -50,6 +50,12 @@
   summary { cursor: pointer; color: var(--muted); font-size: 12px; margin: 8px 0; }
   #status { margin-top: 18px; font-size: 12px; color: var(--ok); min-height: 18px; }
   #status.err { color: #ff5a5a; }
+  .reset { font: inherit; font-size: 12px; cursor: pointer; margin-top: 10px;
+           background: transparent; color: var(--muted); border: 1px solid var(--line);
+           border-radius: 6px; padding: 8px 12px; }
+  .reset:hover { color: var(--text); border-color: #ff5a5a; }
+  .back { color: var(--muted); font-size: 12px; text-decoration: none; }
+  .back:hover { color: var(--text); }
   main {
     flex: 1; min-width: 0; height: 100vh; display: flex;
     align-items: center; justify-content: center; background: #000; overflow: hidden;
@@ -62,6 +68,7 @@
 </head>
 <body>
 <aside>
+  <a class="back" href="/">← Tous les compteurs</a>
   <h1>Réglages du tableau de bord</h1>
   <div class="sub">Les changements sont enregistrés et appliqués en direct sur le 7".</div>
 
@@ -71,11 +78,16 @@
       <option value="global">Tous les jeux (global)</option>
       <option value="game">Jeu — Assetto Corsa Evo</option>
       <option value="car">Voiture</option>
+      <option value="dashboard">Compteur</option>
     </select>
   </label>
   <label class="field" id="keyWrap" style="display:none"><span>Nom de la voiture</span>
     <input type="text" id="key" placeholder="FERRARI 296 GT3">
     <div class="hint">Tel qu'affiché par le jeu (majuscules).</div>
+  </label>
+  <label class="field" id="dashWrap" style="display:none"><span>Compteur</span>
+    <select id="dashKey"></select>
+    <div class="hint">S'applique à ce compteur, tous jeux confondus.</div>
   </label>
 
   <h2>Couleurs</h2>
@@ -100,6 +112,7 @@
   <div class="checks" id="blocks"></div>
 
   <div id="status"></div>
+  <button class="reset" id="reset" type="button">Réinitialiser cette portée</button>
 </aside>
 
 <main id="main"><div id="stage"><iframe id="preview" title="Aperçu"></iframe></div></main>
@@ -133,6 +146,7 @@
 
   let info = null;
   let current = null;
+  let dashboards = [];
 
   function addColor(container, key, label) {
     const row = document.createElement('label');
@@ -176,6 +190,14 @@
     });
   }
 
+  function scopeKey() {
+    const scope = $('scope').value;
+    if (scope === 'game') return 'acevo';
+    if (scope === 'car') return $('key').value.trim();
+    if (scope === 'dashboard') return $('dashKey').value;
+    return '';
+  }
+
   function collect() {
     const colors = {};
     document.querySelectorAll('#colors input, #advanced input').forEach(input => {
@@ -185,7 +207,7 @@
     blockInputs.forEach(input => { blocks[input.dataset.block] = input.checked; });
     return {
       scope: $('scope').value,
-      key: $('scope').value === 'game' ? 'acevo' : $('key').value.trim(),
+      key: scopeKey(),
       active: $('preset').value,
       overrides: {
         colors,
@@ -213,6 +235,10 @@
       setStatus('Indique le nom de la voiture.', true);
       return;
     }
+    if (body.scope === 'dashboard' && !body.key) {
+      setStatus('Choisis un compteur.', true);
+      return;
+    }
     try {
       const r = await fetch('/api/themes', {
         method: 'POST',
@@ -228,11 +254,17 @@
   }
 
   function previewUrl() {
+    const spec = $('dashKey').value || (dashboards[0] && dashboards[0].spec);
+    if (!spec) return '/dashboard?demo&nogame=1&nodash=1';
     const scope = $('scope').value;
-    if (scope === 'global') return '/dashboard?demo&nogame=1';
-    let url = '/dashboard?demo&game=acevo';
-    const car = $('key').value.trim();
-    if (scope === 'car' && car) url += '&car=' + encodeURIComponent(car);
+    let url = '/dashboard/' + spec + '?demo';
+    if (scope !== 'global') url += '&game=acevo';
+    if (scope === 'car') {
+      const car = $('key').value.trim();
+      if (car) url += '&car=' + encodeURIComponent(car);
+    }
+    if (scope === 'global') url += '&nogame=1';
+    if (scope !== 'dashboard') url += '&nodash=1';
     return url;
   }
 
@@ -248,16 +280,46 @@
       const car = $('key').value.trim();
       if (car) query.push('car=' + encodeURIComponent(car));
     }
+    if (scope === 'dashboard' && $('dashKey').value) {
+      query.push('dashboard=' + encodeURIComponent($('dashKey').value));
+    }
     const url = '/api/themes/active' + (query.length ? '?' + query.join('&') : '');
     const theme = await fetch(url, { cache: 'no-store' }).then(r => r.json());
     fillForm(theme);
+    if (theme && theme.id && info && info.themes[theme.id]) {
+      $('preset').value = theme.id;
+    }
+    return theme;
   }
 
   function updateScopeUi() {
     const scope = $('scope').value;
     $('keyWrap').style.display = scope === 'car' ? '' : 'none';
+    $('dashWrap').style.display = scope === 'dashboard' ? '' : 'none';
     reloadPreview();
     loadEffective();
+  }
+
+  async function resetScope() {
+    const scope = $('scope').value;
+    const key = scopeKey();
+    if (scope === 'dashboard' && !key) {
+      setStatus('Choisis un compteur.', true);
+      return;
+    }
+    try {
+      const r = await fetch('/api/themes/reset', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope, key }),
+      });
+      const result = await r.json();
+      if (!r.ok || !result.ok) throw new Error(result.error || 'erreur');
+      setStatus('Portée réinitialisée.');
+      await loadEffective();
+      reloadPreview();
+    } catch (e) {
+      setStatus('Échec : ' + e.message, true);
+    }
   }
 
   function fitPreview() {
@@ -279,6 +341,28 @@
     preset.value = info.state.active || info.active;
 
     try {
+      const data = await fetch('/api/dashboards', { cache: 'no-store' }).then(r => r.json());
+      dashboards = data.dashboards || [];
+      const select = $('dashKey');
+      dashboards.forEach(dash => {
+        const option = document.createElement('option');
+        option.value = dash.spec;
+        option.textContent = dash.name + ' — ' + dash.category_label;
+        select.append(option);
+      });
+      const requested = new URLSearchParams(location.search).get('dashboard');
+      const wanted = dashboards.find(d => d.spec === requested || d.id === requested);
+      if (wanted) {
+        select.value = wanted.spec;
+        $('scope').value = 'dashboard';
+      } else if (data.default) {
+        select.value = data.default;
+      } else if (dashboards[0]) {
+        select.value = dashboards[0].spec;
+      }
+    } catch (_) {}
+
+    try {
       const dash = await fetch('/api/dash', { cache: 'no-store' }).then(r => r.json());
       if (dash && dash.car) $('key').value = dash.car;
     } catch (_) {}
@@ -290,13 +374,17 @@
     });
     $('scope').addEventListener('change', updateScopeUi);
     $('key').addEventListener('change', () => { reloadPreview(); loadEffective(); });
+    $('dashKey').addEventListener('change', () => {
+      reloadPreview();
+      if ($('scope').value === 'dashboard') loadEffective();
+    });
+    $('reset').addEventListener('click', resetScope);
     $('unitSpeed').addEventListener('change', scheduleSave);
     $('unitTemp').addEventListener('change', scheduleSave);
     addEventListener('resize', fitPreview);
 
-    await loadEffective();
     fitPreview();
-    reloadPreview();
+    updateScopeUi();
   }
 
   init();

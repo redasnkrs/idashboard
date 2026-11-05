@@ -1,10 +1,14 @@
 {
   "id": "acevo-cluster",
   "name": "Compteur principal",
+  "description": "Compteur complet : vitesse, rapport, regime, voyants et aides.",
   "category": "course",
   "game": "Assetto Corsa Evo",
+  "game_id": "acevo",
   "size": [1024, 600],
   "schema": "course",
   "schema_version": 1,
-  "preview": "preview.png"
+  "preview": "preview.png",
+  "order": 1,
+  "tags": ["complet", "gt3", "route"]
 }

@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compteur minimal</title>
+<style>
+  :root {
+    --ink: #050505;
+    --ivory: #ece6d6;
+    --muted: #8a8272;
+    --rule: #221e17;
+    --off: #1c1812;
+    --amber: #ff9a2e;
+    --red: #ff3b2a;
+    --green: #3ddc84;
+    --blue: #3d8bff;
+    --violet: #c98bff;
+    --font: "Bahnschrift", "DIN Alternate", "Segoe UI", system-ui, sans-serif;
+  }
+  html, body { margin: 0; height: 100%; background: var(--ink); overflow: hidden;
+               cursor: none; user-select: none; -webkit-user-select: none; }
+  svg { display: block; width: 100vw; height: 100vh; }
+  text { font-family: var(--font); font-feature-settings: "tnum" 1; fill: var(--ivory); }
+  .big { font-weight: 700; }
+  .lbl { font-size: 13px; fill: var(--muted); letter-spacing: .12em; }
+  @keyframes pulse { 0%, 100% { opacity: .35 } 50% { opacity: 1 } }
+  #wait .dot { animation: pulse 1.6s ease-in-out infinite; }
+</style>
+</head>
+<body>
+<svg id="d" viewBox="0 0 1024 600" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="600" fill="var(--ink)"/>
+
+  <g id="blkShift"><g id="leds"></g></g>
+  <text id="status" x="512" y="36" text-anchor="middle" font-size="12"
+        style="fill:var(--amber);letter-spacing:.14em"></text>
+
+  <text id="spd" x="360" y="330" text-anchor="middle" font-size="230" class="big">0</text>
+  <text id="spdUnit" x="360" y="382" text-anchor="middle" font-size="20"
+        style="fill:var(--muted);letter-spacing:.3em">km/h</text>
+
+  <line x1="640" x2="640" y1="150" y2="400" stroke="var(--rule)" stroke-width="2"/>
+  <text id="gear" x="800" y="320" text-anchor="middle" font-size="170" class="big">N</text>
+  <text x="800" y="382" text-anchor="middle" class="lbl">RAPPORT</text>
+
+  <g id="rpmBar"></g>
+
+  <g id="blkTells">
+    <g id="tells"></g>
+  </g>
+  <g id="blkAids">
+    <g id="aids"></g>
+  </g>
+
+  <g id="wait">
+    <rect id="waitBg" width="1024" height="600" fill="#000" opacity=".95"/>
+    <circle class="dot" cx="512" cy="268" r="7" fill="var(--amber)"/>
+    <text x="512" y="320" text-anchor="middle" font-size="28" class="big">En attente d'Assetto Corsa Evo</text>
+    <text x="512" y="352" text-anchor="middle" font-size="16" style="fill:var(--muted)">Lance une session de conduite</text>
+  </g>
+</svg>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const NS = "http://www.w3.org/2000/svg";
+  const S = (tag, attrs, parent) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+
+  const DEFAULT_THEME = {
+    font: '"Bahnschrift", "DIN Alternate", "Segoe UI", system-ui, sans-serif',
+    units: { speed: 'kmh', temp: 'c' },
+    blocks: { telltales: true, aids: true, shiftlights: true },
+    colors: {
+      ink: '#050505', ivory: '#ece6d6', muted: '#8a8272', rule: '#221e17',
+      off: '#1c1812', amber: '#ff9a2e', red: '#ff3b2a', green: '#3ddc84',
+      blue: '#3d8bff', violet: '#c98bff', dim: '#241f17',
+      ledOff: '#17140f', waitOverlay: '#000000',
+    },
+  };
+  let TH = JSON.parse(JSON.stringify(DEFAULT_THEME));
+  const C = {};
+  const syncC = () => Object.assign(C, TH.colors);
+  syncC();
+
+  const cache = new Map();
+  const setT = (id, txt) => {
+    if (cache.get(id) !== txt) { cache.set(id, txt); $(id).textContent = txt; }
+  };
+  const setA = (id, attr, v) => {
+    const k = id + '|' + attr;
+    if (cache.get(k) !== v) { cache.set(k, v); $(id).setAttribute(attr, v); }
+  };
+
+  /* ---------- shift lights ---------- */
+  const LED_N = 27, leds = [];
+  const ledColor = level => level < 4 ? C.green : level < 9 ? C.amber : C.red;
+  function buildLeds() {
+    $('leds').textContent = ''; leds.length = 0;
+    for (let i = 0; i < LED_N; i++) {
+      const level = Math.min(i, LED_N - 1 - i);
+      const el = S('circle', {
+        cx: 262 + i * (500 / (LED_N - 1)), cy: 22, r: 6.5,
+        fill: C.ledOff,
+      }, $('leds'));
+      leds.push({ el, level, col: ledColor(level), on: false });
+    }
+  }
+
+  /* ---------- barre de regime ---------- */
+  const RPM_SEGS = 45, rpmSegs = [];
+  function buildRpmBar() {
+    $('rpmBar').textContent = ''; rpmSegs.length = 0;
+    const x0 = 62, w = 900, gap = 1.5, sw = (w - gap * (RPM_SEGS - 1)) / RPM_SEGS;
+    for (let i = 0; i < RPM_SEGS; i++) {
+      const f = (i + 0.5) / RPM_SEGS;
+      rpmSegs.push({
+        el: S('rect', { x: x0 + i * (sw + gap), y: 486, width: sw,
+                        height: 18, rx: 2, fill: C.off }, $('rpmBar')),
+        f, on: false, col: f < 0.89 ? C.amber : C.red,
+      });
+    }
+  }
+
+  /* ---------- voyants et aides ---------- */
+  const tells = {};
+  function buildTells() {
+    $('tells').textContent = '';
+    ['FEUX', 'ROUTE', 'FREIN', 'PIT'].forEach((label, i) => {
+      const g = S('g', {}, $('tells'));
+      S('rect', { x: 62 + i * 96, y: 528, width: 88, height: 34, rx: 5,
+                  fill: 'none', stroke: C.dim, 'stroke-width': 1.5 }, g);
+      const t = S('text', { x: 106 + i * 96, y: 550, 'text-anchor': 'middle',
+                            'font-size': 13, 'font-weight': 700 }, g);
+      t.textContent = label;
+      t.style.fill = C.dim;
+      tells[label] = { g, t, on: null };
+    });
+  }
+  function tell(label, on, color) {
+    const item = tells[label];
+    if (!item || item.on === on) return;
+    item.on = on;
+    const el = item.g.firstChild;
+    el.setAttribute('stroke', on ? color : C.dim);
+    item.t.style.fill = on ? color : C.dim;
+  }
+
+  const aids = {};
+  function buildAids() {
+    $('aids').textContent = '';
+    ['TC', 'ABS'].forEach((label, i) => {
+      const g = S('g', {}, $('aids'));
+      S('rect', { x: 790 + i * 100, y: 528, width: 92, height: 34, rx: 5,
+                  fill: 'none', stroke: C.dim, 'stroke-width': 1.5 }, g);
+      const t = S('text', { x: 836 + i * 100, y: 550, 'text-anchor': 'middle',
+                            'font-size': 13, 'font-weight': 700 }, g);
+      t.textContent = label;
+      t.style.fill = C.dim;
+      aids[label] = { g, t, on: null };
+    });
+  }
+  function aid(label, on) {
+    const item = aids[label];
+    if (!item || item.on === on) return;
+    item.on = on;
+    item.g.firstChild.setAttribute('stroke', on ? C.amber : C.dim);
+    item.t.style.fill = on ? C.amber : C.dim;
+  }
+
+  /* ---------- thème ---------- */
+  const BLOCK_IDS = {
+    telltales: ['blkTells'], aids: ['blkAids'], shiftlights: ['blkShift'],
+  };
+  function applyBlocks(blocks) {
+    for (const name in BLOCK_IDS) {
+      const on = blocks[name] !== false;
+      for (const id of BLOCK_IDS[name]) {
+        const el = $(id);
+        if (el) el.style.display = on ? '' : 'none';
+      }
+    }
+  }
+  function normalizeTheme(theme) {
+    const out = JSON.parse(JSON.stringify(DEFAULT_THEME));
+    for (const k in theme) {
+      if (k === 'colors' || k === 'units' || k === 'blocks')
+        out[k] = { ...out[k], ...theme[k] };
+      else out[k] = theme[k];
+    }
+    return out;
+  }
+  function applyTheme(theme) {
+    if (!theme || !theme.colors) return;
+    TH = normalizeTheme(theme);
+    syncC();
+    const root = document.documentElement.style;
+    ['ink', 'ivory', 'muted', 'rule', 'off', 'amber', 'red', 'green', 'blue',
+     'violet'].forEach(k => { if (C[k]) root.setProperty('--' + k, C[k]); });
+    root.setProperty('--font', TH.font || DEFAULT_THEME.font);
+    const wb = $('waitBg');
+    if (wb) wb.setAttribute('fill', C.waitOverlay);
+    buildLeds(); buildRpmBar(); buildTells(); buildAids();
+    applyBlocks(TH.blocks);
+    cache.clear();
+  }
+
+  /* ---------- données ---------- */
+  const params = new URLSearchParams(location.search);
+  const demo = params.has('demo');
+  const META = window.__IDASH__ || {};
+  const DASHBOARD = params.has('nodash') ? null : (params.get('dashboard') || META.spec || null);
+  const GAME = params.has('nogame') ? null : (params.get('game') || META.game_id || 'acevo');
+  const CAR_PARAM = params.get('car');
+  const HTTP = location.protocol === 'http:' || location.protocol === 'https:';
+  let tgt = { c: false }, lastMsg = 0, themeCar = null;
+
+  function fetchTheme() {
+    const query = [];
+    if (DASHBOARD) query.push('dashboard=' + encodeURIComponent(DASHBOARD));
+    if (GAME) query.push('game=' + encodeURIComponent(GAME));
+    const car = CAR_PARAM || themeCar;
+    if (car) query.push('car=' + encodeURIComponent(car));
+    const url = '/api/themes/active' + (query.length ? '?' + query.join('&') : '');
+    fetch(url, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(t => { if (t && t.colors) applyTheme(t); })
+      .catch(() => {});
+  }
+  if (HTTP) {
+    fetchTheme();
+    const stream = new EventSource('/api/themes/stream');
+    stream.onmessage = () => fetchTheme();
+  }
+
+  const RATIOS = [0, 7.2, 11.4, 15.8, 20.3, 25, 29.5, 34];
+  function demoData(t) {
+    const sp = 28 + 240 * (0.5 - 0.5 * Math.cos(2 * Math.PI * t / 28));
+    const accel = Math.sin(2 * Math.PI * t / 28) > 0;
+    let g = 1;
+    while (g < 7 && sp / RATIOS[g] * 1000 > 8900) g++;
+    const rpm = Math.max(900, sp / RATIOS[g] * 1000);
+    const phase = Math.floor(t / 6) % 4;
+    return {
+      c: true, st: 2, v: sp, r: rpm, rm: 9000, g,
+      gas: accel ? 0.9 : 0, brk: accel ? 0 : 0.4,
+      low: true, high: false, L: phase === 1, R: phase === 3, haz: false,
+      hb: 0, pit: false, tc: accel && sp < 90, abs: false,
+      up: rpm > 8700, lim: false, pitlane: false,
+      car: 'FERRARI 296 GT3',
+    };
+  }
+
+  if (!demo) {
+    const es = new EventSource('/stream');
+    es.onmessage = e => {
+      try { tgt = JSON.parse(e.data); lastMsg = performance.now(); } catch (_) {}
+    };
+  }
+
+  const cur = { r: 0, v: 0 };
+  const ease = (a, b, dt, tau) => a + (b - a) * (1 - Math.exp(-dt / tau));
+  let lastT = performance.now();
+
+  function frame(now) {
+    const dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+    const d = demo ? demoData(now / 1000) : tgt;
+    const live = !!d.c && (demo || now - lastMsg < 2000);
+    setA('wait', 'display', live ? 'none' : 'inline');
+    if (live) {
+      if (!CAR_PARAM && d.car && d.car !== themeCar) {
+        themeCar = d.car;
+        fetchTheme();
+      }
+      const max = d.rm || 8000;
+      cur.r = ease(cur.r, d.r, dt, 0.035);
+      cur.v = ease(cur.v, d.v, dt, 0.05);
+      const rf = clamp(cur.r / max);
+      const mph = TH.units.speed === 'mph';
+      setT('spd', String(Math.round(mph ? cur.v * 0.621371 : cur.v)));
+      setT('spdUnit', mph ? 'mph' : 'km/h');
+      setT('gear', d.g < 0 ? 'R' : d.g === 0 ? 'N' : String(d.g));
+      const blink = Math.floor(now / 90) % 2 === 0;
+      const shift = d.up || rf > 0.965;
+      setA('gear', 'style', 'fill:' + (shift && blink ? C.red : shift ? C.amber : C.ivory));
+      for (const s of rpmSegs) {
+        const on = s.f <= rf;
+        if (on !== s.on) { s.on = on; s.el.setAttribute('fill', on ? s.col : C.off); }
+      }
+      const flashAll = (d.lim || rf > 0.975) && !blink;
+      for (const l of leds) {
+        const on = !flashAll && rf >= 0.72 && rf >= 0.72 + 0.26 * (l.level / 13);
+        if (on !== l.on) {
+          l.on = on;
+          l.el.setAttribute('fill', on ? l.col : C.ledOff);
+        }
+      }
+      setT('status', d.st === 3 ? 'PAUSE' : d.st === 1 ? 'REPLAY' : d.pitlane ? 'PIT' : '');
+      tell('FEUX', !!d.low, C.green);
+      tell('ROUTE', !!d.high, C.blue);
+      tell('FREIN', d.hb > 0.3, C.red);
+      tell('PIT', !!d.pit, C.amber);
+      aid('TC', !!d.tc);
+      aid('ABS', !!d.abs);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  buildLeds(); buildRpmBar(); buildTells(); buildAids();
+  requestAnimationFrame(frame);
+
+  addEventListener('click', () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  });
+})();
+</script>
+</body>
+</html>

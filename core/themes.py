@@ -1,12 +1,13 @@
-"""Themes : chargement, resolution par jeu/voiture, sauvegarde, diffusion.
+"""Themes : chargement, resolution par compteur/jeu/voiture, sauvegarde,
+diffusion.
 
 Les palettes sont des fichiers ``themes/<id>.json``. L'etat choisi par
 l'utilisateur (theme actif + surcharges) est dans ``themes/active.json``,
 ignore par git.
 
-Resolution : voiture > jeu > global. Les surcharges sont fusionnees dans cet
-ordre, ce qui permet de garder un reglage global et de ne changer qu'une
-couleur pour une voiture precise.
+Resolution : compteur > voiture > jeu > global. Les surcharges sont
+fusionnees dans cet ordre, ce qui permet de garder un reglage global et de ne
+changer qu'une couleur pour un compteur, une voiture ou un jeu precis.
 """
 import copy
 import json
@@ -36,6 +37,7 @@ DEFAULT_STATE = {
     "overrides": {},
     "games": {},
     "cars": {},
+    "dashboards": {},
 }
 
 _HEX = re.compile(r"^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$")
@@ -117,8 +119,8 @@ def sanitize_overrides(overrides):
     return clean
 
 
-def resolve(game=None, car=None):
-    """Theme effectif pour un jeu / une voiture donnes."""
+def resolve(dashboard=None, game=None, car=None):
+    """Theme effectif pour un compteur / un jeu / une voiture donnes."""
     themes = load_themes()
     if not themes:
         return {}
@@ -129,6 +131,8 @@ def resolve(game=None, car=None):
         scopes.append(state.get("games", {}).get(game, {}))
     if car:
         scopes.append(state.get("cars", {}).get(car, {}))
+    if dashboard:
+        scopes.append(state.get("dashboards", {}).get(dashboard, {}))
     overrides = {}
     for scope in scopes:
         if scope.get("active"):
@@ -153,6 +157,8 @@ def update(payload):
         target = state.setdefault("games", {}).setdefault(key, {})
     elif scope == "car" and key:
         target = state.setdefault("cars", {}).setdefault(key, {})
+    elif scope == "dashboard" and key:
+        target = state.setdefault("dashboards", {}).setdefault(key, {})
     else:
         scope = "global"
         target = state
@@ -174,6 +180,8 @@ def reset_scope(scope, key):
         state.get("games", {}).pop(key, None)
     elif scope == "car":
         state.get("cars", {}).pop(key, None)
+    elif scope == "dashboard":
+        state.get("dashboards", {}).pop(key, None)
     else:
         state["overrides"] = {}
         state["active"] = DEFAULT_STATE["active"]

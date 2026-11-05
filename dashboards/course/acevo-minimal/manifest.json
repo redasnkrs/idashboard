@@ -1,0 +1,14 @@
+{
+  "id": "acevo-minimal",
+  "name": "Minimal",
+  "description": "L'essentiel : vitesse, rapport, compte-tours et voyants.",
+  "category": "course",
+  "game": "Assetto Corsa Evo",
+  "game_id": "acevo",
+  "size": [1024, 600],
+  "schema": "course",
+  "schema_version": 1,
+  "preview": "preview.png",
+  "order": 2,
+  "tags": ["minimal", "conduite"]
+}
