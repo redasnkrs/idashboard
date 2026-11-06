@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
 from core import (app_settings, catalog, game, launcher, media, pump,
-                  screens, studio, themes, updater)
+                  screens, simhub, studio, themes, updater)
 from core.config import (DEFAULT_DASHBOARD, HOME_FILE, PORT, SETTINGS_FILE,
                          STREAM_HZ, STUDIO_DIR, UPDATE_FILE, VERSION,
                          dashboard_asset, dashboard_file, dashboard_manifest,
@@ -86,7 +86,7 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = 0
-        if length <= 0 or length > 16 * 1024 * 1024:
+        if length <= 0 or length > 64 * 1024 * 1024:
             raise ValueError("corps JSON manquant ou trop grand")
         data = json.loads(self.rfile.read(length).decode("utf-8"))
         if not isinstance(data, dict):
@@ -173,6 +173,8 @@ class Handler(BaseHTTPRequestHandler):
             self._custom_preview(path[len("/custom/previews/"):])
         elif path.startswith("/custom/icons/"):
             self._custom_icon(path[len("/custom/icons/"):])
+        elif path.startswith("/custom/imports/"):
+            self._custom_import(path[len("/custom/imports/"):])
         elif path == "/api/themes":
             state = themes.load_state()
             info = {
@@ -235,6 +237,8 @@ class Handler(BaseHTTPRequestHandler):
             self._install_update()
         elif path == "/api/layouts":
             self._save_layout()
+        elif path == "/api/simhub/import":
+            self._import_simhub()
         elif path == "/api/icons":
             self._save_icon()
         else:
@@ -328,6 +332,19 @@ class Handler(BaseHTTPRequestHandler):
         self._file(path, ctype, SVG_CSP if path.suffix.lower() == ".svg"
                    else None)
 
+    def _custom_import(self, name):
+        parts = unquote(name).split("/", 1)
+        if len(parts) != 2:
+            self.send_error(404)
+            return
+        path = studio.import_asset_path(parts[0], parts[1])
+        if path is None:
+            self.send_error(404)
+            return
+        ctype = MIME.get(path.suffix.lower(), "application/octet-stream")
+        self._file(path, ctype, SVG_CSP if path.suffix.lower() == ".svg"
+                   else None)
+
     def _custom_dashboard(self, layout_id):
         layout_id = unquote(layout_id).strip().lower()
         item = catalog.find("custom/" + layout_id)
@@ -381,6 +398,19 @@ class Handler(BaseHTTPRequestHandler):
         ok = studio.delete_layout(unquote(layout_id))
         self._send(json.dumps({"ok": ok}).encode(), "application/json",
                    200 if ok else 404)
+
+    def _import_simhub(self):
+        try:
+            payload = self._read_json()
+            layout, report = simhub.import_dashboard(
+                payload.get("data"), payload.get("name") or "dashboard.simhubdash")
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
+                       "application/json", 400)
+            return
+        self._send(json.dumps({"ok": True, "layout": layout,
+                               "report": report}).encode(),
+                   "application/json")
 
     def _save_icon(self):
         try:

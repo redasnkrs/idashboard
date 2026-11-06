@@ -23,10 +23,11 @@ CUSTOM_DIR = ROOT / "custom"
 LAYOUTS_DIR = CUSTOM_DIR / "layouts"
 PREVIEWS_DIR = CUSTOM_DIR / "previews"
 ICONS_DIR = CUSTOM_DIR / "icons"
+IMPORTS_DIR = CUSTOM_DIR / "imports"
 
 LAYOUT_VERSION = 1
 CANVAS_W, CANVAS_H = 1024, 600
-MAX_WIDGETS = 200
+MAX_WIDGETS = 800
 MAX_PREVIEW = 2 * 1024 * 1024
 MAX_ICON = 512 * 1024
 
@@ -49,6 +50,7 @@ _SAFE_GAME_ID = re.compile(r"^[a-z0-9_-]{1,40}$")
 _SAFE_ICON = re.compile(r"^[a-z0-9][a-z0-9-]{0,79}$")
 _SAFE_CUSTOM_ICON = re.compile(r"^custom:[A-Za-z0-9._-]{1,120}$")
 _SAFE_ICON_FILE = re.compile(r"^[A-Za-z0-9._-]{1,160}$")
+_SAFE_IMPORT_TOKEN = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 
 
 def _now():
@@ -111,6 +113,11 @@ def _src(value):
         name = value.rsplit("/", 1)[-1]
         if _SAFE_ICON_FILE.match(name) and ".." not in name:
             return value
+    if value.startswith("/custom/imports/"):
+        parts = value[len("/custom/imports/"):].split("/")
+        if len(parts) >= 2 and all(_SAFE_ICON_FILE.match(p) and
+                                   p not in (".", "..") for p in parts):
+            return value
     return ""
 
 
@@ -156,14 +163,20 @@ def _clean_widget(raw, index):
         "w": round(w, 3), "h": round(h, 3),
         "visible": raw.get("visible") is not False,
         "opacity": _num(raw.get("opacity"), 1, 0, 1),
+        "rotation": _num(raw.get("rotation"), 0, -360, 360),
+        "scale": _num(raw.get("scale"), 1, -1000, 1000),
+        "offset": _num(raw.get("offset"), 0, -100000, 100000),
+        "font": _text(raw.get("font"), "", 80),
         "color": _color(raw.get("color")),
         "accent": _color(raw.get("accent"), "amber"),
         "bg": _color(raw.get("bg"), "off"),
         "labelColor": _color(raw.get("labelColor"), "muted"),
         "unitColor": _color(raw.get("unitColor"), "muted"),
         "trackColor": _color(raw.get("trackColor"), "off"),
-        "fill": _color(raw.get("fill"), "off"),
-        "stroke": _color(raw.get("stroke"), "rule"),
+        "fill": ("none" if raw.get("fill") == "none"
+                 else _color(raw.get("fill"), "off")),
+        "stroke": ("none" if raw.get("stroke") == "none"
+                   else _color(raw.get("stroke"), "rule")),
     }
     if kind in ("value", "text", "gauge", "bar", "clock", "gearstrip"):
         item.update({
@@ -453,6 +466,14 @@ def icon_path(filename):
     if not _safe_icon_filename(filename):
         return None
     path = ICONS_DIR / filename
+    return path if path.is_file() else None
+
+
+def import_asset_path(token, filename):
+    token = (token or "").strip().lower()
+    if not _SAFE_IMPORT_TOKEN.match(token) or not _safe_icon_filename(filename):
+        return None
+    path = IMPORTS_DIR / token / filename
     return path if path.is_file() else None
 
 

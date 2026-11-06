@@ -43,5 +43,9 @@ dist/
 .update/
 update.log
 
+# Packs SimHub locaux (trop gros pour GitHub)
+simhub_samples/
+*.rar
+
 # Profil Chrome du mini écran (créé au lancement)
 .profile-7/

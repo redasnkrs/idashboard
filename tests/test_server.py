@@ -1,3 +1,4 @@
+import base64
 import http.client
 import json
 import tempfile
@@ -7,7 +8,8 @@ import unittest
 from pathlib import Path
 
 from adapters.fake import FakeSource
-from core import app_settings, game, media, pump, studio, themes, updater
+from core import (app_settings, game, media, pump, simhub, studio, themes,
+                  updater)
 from core.schema import validate
 from core.server import serve
 
@@ -25,11 +27,14 @@ class ServerTest(unittest.TestCase):
         cls.old_updater = updater.UPDATE_DIR
         updater.UPDATE_DIR = Path(cls.tmp.name) / ".update"
         cls.old_studio = (studio.LAYOUTS_DIR, studio.PREVIEWS_DIR,
-                          studio.ICONS_DIR)
+                          studio.ICONS_DIR, studio.IMPORTS_DIR)
+        cls.old_simhub = simhub.IMPORTS_DIR
         base = Path(cls.tmp.name) / "custom"
         studio.LAYOUTS_DIR = base / "layouts"
         studio.PREVIEWS_DIR = base / "previews"
         studio.ICONS_DIR = base / "icons"
+        studio.IMPORTS_DIR = base / "imports"
+        simhub.IMPORTS_DIR = studio.IMPORTS_DIR
         threading.Thread(target=pump.poll_loop, args=(FakeSource(), False),
                          daemon=True).start()
         cls.server = serve(0)
@@ -44,7 +49,8 @@ class ServerTest(unittest.TestCase):
         app_settings.APP_FILE = cls.old_app
         app_settings.LEGACY_GAME_FILE = cls.old_legacy
         (studio.LAYOUTS_DIR, studio.PREVIEWS_DIR,
-         studio.ICONS_DIR) = cls.old_studio
+         studio.ICONS_DIR, studio.IMPORTS_DIR) = cls.old_studio
+        simhub.IMPORTS_DIR = cls.old_simhub
         updater.UPDATE_DIR = cls.old_updater
         cls.tmp.cleanup()
 
@@ -378,6 +384,35 @@ class ServerTest(unittest.TestCase):
 
     def test_studio_layout_rejects_bad_payload(self):
         status, body = self.post("/api/layouts", {"name": ""})
+        self.assertEqual(400, status)
+
+    def test_simhub_import_route(self):
+        doc = {
+            "BaseWidth": 800, "BaseHeight": 480,
+            "BackgroundColor": "#FF000000",
+            "SelectedScreen": {"$ref": "s1"},
+            "Screens": {"$values": [{
+                "$id": "s1", "Name": "Dashboard", "InGameScreen": True,
+                "Items": {"$values": [{
+                    "$type": "SimHub.Models.TextItem, SimHub",
+                    "Name": "Speed", "Left": 0, "Top": 0, "Width": 200,
+                    "Height": 80, "Text": "0", "FontSize": 40,
+                    "Bindings": {"Text": {"Formula": {
+                        "Expression": "[DataCorePlugin.GameData.NewData."
+                        "SpeedKmh]"}}},
+                }]},
+            }]},
+        }
+        data = base64.b64encode(json.dumps(doc).encode()).decode()
+        status, body = self.post("/api/simhub/import", {
+            "name": "test.djson", "data": data})
+        self.assertEqual(200, status)
+        payload = json.loads(body)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(1, len(payload["layout"]["widgets"]))
+        self.assertEqual("v", payload["layout"]["widgets"][0]["field"])
+        self.assertEqual("Dashboard", payload["report"]["screen"])
+        status, body = self.post("/api/simhub/import", {"data": "bad"})
         self.assertEqual(400, status)
         self.assertFalse(json.loads(body)["ok"])
 

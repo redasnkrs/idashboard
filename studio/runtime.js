@@ -40,6 +40,7 @@
   const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
   const role = (C, v, def = "ivory") => {
     if (typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v)) return v;
+    if (v === "none") return "none";
     return C[v] || C[def];
   };
   const num = (v, d = 0) => (v == null ? "--" : Number(v).toFixed(d));
@@ -61,12 +62,19 @@
     const v = state[field];
     return v === undefined || v === null ? null : v;
   };
+  const scaled = (w, raw) => {
+    if (typeof raw !== "number" || !isFinite(raw)) return raw;
+    const scale = typeof w.scale === "number" ? w.scale : 1;
+    const offset = typeof w.offset === "number" ? w.offset : 0;
+    return raw * scale + offset;
+  };
   const display = (w, state, theme) => {
     let raw = fieldValue(state, w.field);
     if (w.type === "text" && w.text && (w.field === "none" || raw == null)) {
       return { text: w.text, raw: null, value: null, unit: "" };
     }
     if (raw == null) return { text: "--", raw: null, value: null, unit: "" };
+    raw = scaled(w, raw);
     let value = raw;
     let unit = "";
     const u = w.unit || "none";
@@ -200,8 +208,11 @@
     function build(max) {
       builtMax = max;
       tach.textContent = ""; ringG.textContent = ""; segs = [];
-      const major = max <= 200 ? 20 : max <= 500 ? 50 : max <= 1000 ? 100 :
-        max <= 10000 ? 1000 : max <= 30000 ? 5000 : 10000;
+      const target = max / 8;
+      const pow = Math.pow(10, Math.floor(Math.log10(target || 1)));
+      const norm = target / pow;
+      const major = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 :
+        norm <= 5 ? 5 : 10) * pow;
       const minor = major / 5;
       const redFrom = max * (w.redline == null ? .89 : w.redline);
       for (let v = 0; v <= max + .1; v += minor) {
@@ -249,10 +260,12 @@
         `${x1.toFixed(2)} ${y1.toFixed(2)}`;
     }
     function update(state) {
-      const max = (w.maxField && w.maxField !== "none" &&
+      const maxRaw = (w.maxField && w.maxField !== "none" &&
         state[w.maxField]) || w.max || 100;
+      const max = (w.maxField && w.maxField !== "none")
+        ? scaled(w, maxRaw) : maxRaw;
       if (Math.abs(max - builtMax) > .01) build(max);
-      const raw = Number(fieldValue(state, w.field) || 0);
+      const raw = scaled(w, Number(fieldValue(state, w.field) || 0));
       const frac = clamp((raw - (w.min || 0)) /
         ((max - (w.min || 0)) || 1));
       for (const s of segs) {
@@ -301,9 +314,11 @@
         height: 6, rx: 3, fill: color }, g);
     }
     function update(state) {
-      const raw = Number(fieldValue(state, w.field) || 0);
-      const max = (w.maxField && w.maxField !== "none" &&
+      const raw = scaled(w, Number(fieldValue(state, w.field) || 0));
+      const maxRaw = (w.maxField && w.maxField !== "none" &&
         state[w.maxField]) || w.max || 100;
+      const max = (w.maxField && w.maxField !== "none")
+        ? scaled(w, maxRaw) : maxRaw;
       const frac = clamp((raw - (w.min || 0)) /
         ((max - (w.min || 0)) || 1));
       const c = thresholdColor(w, raw, ctx.C);
@@ -472,9 +487,11 @@
         r: radius, fill: role(ctx.C, "off") }, g), level, col, on: false });
     }
     function update(state) {
-      const max = (w.maxField && w.maxField !== "none" &&
+      const maxRaw = (w.maxField && w.maxField !== "none" &&
         state[w.maxField]) || 9000;
-      const raw = Number(fieldValue(state, w.field || "r") || 0);
+      const max = (w.maxField && w.maxField !== "none")
+        ? scaled(w, maxRaw) : maxRaw;
+      const raw = scaled(w, Number(fieldValue(state, w.field || "r") || 0));
       const frac = clamp(raw / (max || 1));
       const lim = state.lim || frac > .975;
       const flash = lim && Math.floor(performance.now() / 90) % 2 === 0;
@@ -665,7 +682,13 @@
       fill: role(C, layout.background || "ink", "ink") }, svg);
     for (const w of (layout.widgets || [])) {
       if (w.visible === false) continue;
-      const g = el("g", { opacity: w.opacity == null ? 1 : w.opacity }, svg);
+      const attrs = { opacity: w.opacity == null ? 1 : w.opacity };
+      if (w.rotation) {
+        attrs.transform = `rotate(${w.rotation} ${w.x + w.w / 2} ` +
+          `${w.y + w.h / 2})`;
+      }
+      if (w.font) attrs["font-family"] = w.font;
+      const g = el("g", attrs, svg);
       const fn = WIDGETS[w.type] || WIDGETS.text;
       try {
         const inst = fn(g, w, { ...opts, C, theme });

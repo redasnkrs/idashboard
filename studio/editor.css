@@ -112,6 +112,7 @@ h2:first-child { margin-top: 0; }
 .wbox {
   position: absolute; border: 1px dashed rgba(255,154,46,.55);
   pointer-events: auto; cursor: move; box-sizing: border-box;
+  transform-origin: center;
 }
 .wbox:hover { border-color: var(--amber); }
 .wbox.selected { border: 1.5px solid var(--amber);

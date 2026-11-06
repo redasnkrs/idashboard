@@ -152,6 +152,7 @@
       box.style.top = w.y + "px";
       box.style.width = w.w + "px";
       box.style.height = w.h + "px";
+      if (w.rotation) box.style.transform = "rotate(" + w.rotation + "deg)";
       box.dataset.id = w.id;
       box.addEventListener("pointerdown", e => startDrag(e, w, "move"));
       if (w.id === selected) {
@@ -340,6 +341,11 @@
     common.appendChild(row("Width", numInput(w.w, v => set(w, "w", v), 1, 8, 1024)));
     common.appendChild(row("Height", numInput(w.h, v => set(w, "h", v), 1, 8, 600)));
     common.appendChild(row("Opacity", numInput(w.opacity == null ? 1 : w.opacity, v => set(w, "opacity", v), .05, 0, 1)));
+    common.appendChild(row("Rotation", numInput(w.rotation || 0, v => set(w, "rotation", v), 1, -360, 360)));
+    if (["value", "gauge", "bar", "shiftlights"].includes(w.type)) {
+      common.appendChild(row("Scale", numInput(w.scale == null ? 1 : w.scale, v => set(w, "scale", v), .01, -1000, 1000)));
+      common.appendChild(row("Offset", numInput(w.offset || 0, v => set(w, "offset", v), 1, -100000, 100000)));
+    }
     common.appendChild(row("Visible", checkInput(w.visible, v => set(w, "visible", v))));
     propsEl.appendChild(common);
     const sep = document.createElement("div");
@@ -356,6 +362,7 @@
       add("Size", numInput(w.size, v => set(w, "size", v), 1, 6, 300));
       add("Label size", numInput(w.labelSize, v => set(w, "labelSize", v), 1, 6, 80));
       add("Weight", numInput(w.weight, v => set(w, "weight", v), 100, 100, 900));
+      add("Font", textInput(w.font, v => set(w, "font", v)));
       add("Align", selInput(w.align, ["left", "center", "right"], v => set(w, "align", v)));
       add("Color", colorInput(w.color, v => set(w, "color", v)));
       add("Label color", colorInput(w.labelColor, v => set(w, "labelColor", v)));
@@ -740,6 +747,39 @@
     };
     reader.readAsText(file);
   }
+  function importSimHub(file) {
+    toast("Importing SimHub…");
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const raw = String(reader.result || "");
+        const data = raw.includes(",") ? raw.split(",", 2)[1] : raw;
+        const r = await fetch("/api/simhub/import", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: file.name, data }),
+        });
+        const result = await r.json();
+        if (!r.ok || !result.ok) throw new Error(result.error || "import failed");
+        layout = result.layout;
+        layout.canvas = layout.canvas || { width: 1024, height: 600, grid: 16 };
+        layout.widgets = Array.isArray(layout.widgets) ? layout.widgets : [];
+        selected = null;
+        markDirty();
+        renderAll();
+        const report = result.report || {};
+        if (report.warnings && report.warnings.length) {
+          console.warn("SimHub import:", report.warnings);
+        }
+        toast("SimHub: " + (report.widgets || layout.widgets.length) +
+          " widgets, " + (report.skipped || 0) + " ignored.");
+      } catch (e) { toast("SimHub import failed: " + e.message, true); }
+    };
+    reader.readAsDataURL(file);
+  }
+  function importFile(file) {
+    if (/\.(djson|simhubdash|zip)$/i.test(file.name)) importSimHub(file);
+    else importJson(file);
+  }
 
   /* ---------------- load / init ---------------- */
   function fit() {
@@ -775,7 +815,7 @@
     $("exportBtn").onclick = exportJson;
     $("importBtn").onclick = () => $("importFile").click();
     $("importFile").onchange = e => {
-      if (e.target.files[0]) importJson(e.target.files[0]);
+      if (e.target.files[0]) importFile(e.target.files[0]);
       e.target.value = "";
     };
     $("iconSearch").addEventListener("input", () => {

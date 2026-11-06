@@ -110,13 +110,18 @@ Ouvre `http://localhost:25555/studio` (bouton **Studio** sur l'accueil).
   média Cider, horloge, shift lights, bande de rapports.
 - Galerie d'icônes intégrée (dont les icônes maison) + **upload SVG/PNG**.
 - Couleurs par rôles du thème ou hex, champ/format/unité par widget.
+- **Import SimHub** (`.simhubdash`, `.zip`, `.djson`) : widgets SimHub
+  aplatis, images copiées dans `custom/imports/`, rotation/police/échelle et
+  rapport des éléments ignorés. Le `.djson` seul fonctionne, mais l’archive
+  complète est préférable pour les composants et les images.
 - Sauvegarde, duplication, suppression, import/export JSON, aperçu généré,
   thème de prévisualisation et bouton « Launch on 7" ».
 - Un compteur perso apparaît automatiquement dans l'accueil, les réglages,
   le swipe et le catalogue ; il utilise le thème global/compteur existant.
 
 Les fichiers générés sont dans `custom/` (ignoré par git) :
-`custom/layouts/`, `custom/previews/`, `custom/icons/`. Le runtime commun est
+`custom/layouts/`, `custom/previews/`, `custom/icons/`,
+`custom/imports/`. Le runtime commun est
 dans `studio/runtime.js` ; la bibliothèque d'icônes Lucide est sous licence ISC
 (voir `studio/ICONS_LICENSE.txt`).
 
