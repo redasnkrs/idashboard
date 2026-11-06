@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>idash · Mise à jour</title>
+<style>
+  :root {
+    --bg: #0b0a08; --panel: #14120e; --line: #2a251d; --text: #ece6d6;
+    --muted: #8a8272; --amber: #ff9a2e; --red: #ff3b2a; --green: #3ddc84;
+    --font: "Bahnschrift", "DIN Alternate", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: radial-gradient(900px 500px at 30% -10%, #1a1610, var(--bg) 60%);
+    color: var(--text); font-family: var(--font);
+    padding: 40px 22px;
+  }
+  main { max-width: 720px; margin: 0 auto; }
+  .back { color: var(--muted); text-decoration: none; font-size: 13px; }
+  h1 { font-size: 28px; margin: 18px 0 6px; letter-spacing: .02em; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 14px; padding: 20px; margin-bottom: 16px;
+  }
+  .row { display: flex; align-items: center; justify-content: space-between;
+         gap: 14px; flex-wrap: wrap; }
+  .ver { font-size: 24px; font-weight: 700; }
+  .badge { font-size: 12px; color: var(--muted); border: 1px solid var(--line);
+           border-radius: 99px; padding: 6px 10px; }
+  a.link { color: var(--amber); text-decoration: none; }
+  a.link:hover { text-decoration: underline; }
+  .filebtn {
+    display: block; width: 100%; color: var(--muted); font: inherit;
+    background: #0d0b08; border: 1px dashed var(--line); border-radius: 9px;
+    padding: 12px; margin: 12px 0; cursor: pointer; overflow: hidden;
+    white-space: nowrap; text-overflow: ellipsis;
+  }
+  .filebtn:hover { border-color: var(--amber); color: var(--text); }
+  button {
+    font: inherit; font-weight: 700; cursor: pointer; border-radius: 8px;
+    padding: 11px 16px; border: 1px solid var(--amber);
+    background: var(--amber); color: #17130d;
+  }
+  button:disabled { opacity: .5; cursor: wait; }
+  #status { color: var(--muted); font-size: 13px; min-height: 18px;
+            margin-top: 12px; }
+  #status.err { color: #ffb3ab; }
+  #status.ok { color: var(--green); }
+  .hint { color: var(--muted); font-size: 12px; line-height: 1.5; }
+  code { color: var(--text); }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="/">← Retour à l'accueil</a>
+  <h1>Mise à jour</h1>
+  <div class="sub">Installe une release GitHub sans git, sans supprimer l'application.</div>
+
+  <section class="card">
+    <div class="row">
+      <div>
+        <div class="badge">Version installée</div>
+        <div class="ver" id="version">…</div>
+      </div>
+      <a class="link" id="releases" href="https://github.com/redasnkrs/idashboard/releases" target="_blank" rel="noopener">Ouvrir les releases GitHub ↗</a>
+    </div>
+  </section>
+
+  <section class="card">
+    <p class="hint">
+      Télécharge le <code>.zip</code> de la dernière release depuis GitHub, puis
+      sélectionne-le ici. L'application remplace le code, garde tes données
+      (<code>custom/</code>, thèmes, <code>game.json</code>, profil Chrome) et
+      redémarre automatiquement.
+    </p>
+    <input type="file" id="zip" accept=".zip,application/zip" hidden>
+    <label class="filebtn" for="zip" id="fileLabel">Choisir le ZIP de la release…</label>
+    <button id="install" type="button">Installer et redémarrer</button>
+    <div id="status"></div>
+  </section>
+
+  <p class="hint">
+    Pour créer une release : incrémente <code>VERSION</code>, commit, puis
+    pousse un tag <code>vX.Y.Z</code>. Le workflow GitHub Actions construit le
+    ZIP et crée la release.
+  </p>
+</main>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const status = (text, cls) => {
+    const el = $('status');
+    el.textContent = text;
+    el.className = cls || '';
+  };
+  fetch('/api/update/info', { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : null)
+    .then(info => {
+      if (!info) return;
+      $('version').textContent = 'v' + info.version;
+      if (info.releases_url) $('releases').href = info.releases_url;
+    })
+    .catch(() => {});
+
+  async function waitServer() {
+    for (let i = 0; i < 30; i++) {
+      try {
+        const r = await fetch('/api/update/info', { cache: 'no-store' });
+        if (r.ok) { location.href = '/'; return; }
+      } catch (e) {}
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    status('Redémarrage long : recharge la page dans quelques secondes.', 'err');
+  }
+
+  $('zip').addEventListener('change', () => {
+    const file = $('zip').files[0];
+    $('fileLabel').textContent = file ? file.name :
+      'Choisir le ZIP de la release…';
+  });
+
+  $('install').addEventListener('click', async () => {
+    const file = $('zip').files[0];
+    if (!file) { status('Choisis le ZIP de la release.', 'err'); return; }
+    if (!/\.zip$/i.test(file.name)) {
+      status('Le fichier doit être un .zip.', 'err'); return;
+    }
+    if (file.size > 16 * 1024 * 1024) {
+      status('ZIP trop volumineux (max 16 Mo).', 'err'); return;
+    }
+    const button = $('install');
+    button.disabled = true;
+    status('Lecture du ZIP…');
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        status('Installation…');
+        const r = await fetch('/api/update/install', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: file.name, data: reader.result }),
+        });
+        const data = await r.json();
+        if (!r.ok || !data.ok) throw new Error(data.error || 'échec');
+        status('Mise à jour v' + data.version +
+               ' installée. Redémarrage…', 'ok');
+        setTimeout(waitServer, 3500);
+      } catch (e) {
+        status('Échec : ' + e.message, 'err');
+        button.disabled = false;
+      }
+    };
+    reader.onerror = () => {
+      status('Impossible de lire le fichier.', 'err');
+      button.disabled = false;
+    };
+    reader.readAsDataURL(file);
+  });
+})();
+</script>
+</body>
+</html>

@@ -133,8 +133,10 @@
 <main class="grid" id="grid"></main>
 
 <div class="foot">
-  <span>Assetto Corsa Evo · pont local · <span id="count">0</span> compteur(s)</span>
-  <span><a href="/dashboard?demo">Ouvrir un aperçu en mode démo</a></span>
+  <span>pont local · <span id="count">0</span> compteur(s) ·
+    <span id="version">idash</span></span>
+  <span><a href="/update">Mise à jour</a> ·
+    <a href="/dashboard?demo">Ouvrir un aperçu en mode démo</a></span>
 </div>
 
 <div id="toast" role="status"></div>
@@ -257,6 +259,14 @@
       $('count').textContent = all.length;
       $('live').className = 'dot ok';
       $('liveTxt').textContent = 'pont local actif';
+      fetch('/api/update/info', { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : null)
+        .then(info => {
+          if (info && info.version) {
+            $('version').textContent = 'idash v' + info.version;
+          }
+        })
+        .catch(() => {});
       fetch('/api/dash', { cache: 'no-store' })
         .then(r => r.ok ? r.json() : null)
         .then(dash => {

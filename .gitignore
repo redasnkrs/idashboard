@@ -36,5 +36,10 @@ game.tmp
 # Studio : dashboards et icônes personnalisés
 custom/
 
+# Mises à jour / releases
+dist/
+.update/
+update.log
+
 # Profil Chrome du mini écran (créé au lancement)
 .profile-7/

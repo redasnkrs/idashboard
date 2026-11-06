@@ -12,7 +12,7 @@ import sys
 import threading
 
 from core import media
-from core.config import PORT
+from core.config import PORT, VERSION
 from core.pump import poll_loop
 from core.server import serve
 
@@ -52,6 +52,8 @@ def _make_source(fake, game):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
+    ap.add_argument("--version", action="version",
+                    version="idash " + VERSION)
     ap.add_argument("--debug", action="store_true")
     ap.add_argument("--fake", action="store_true",
                     help="fausse source, sans jeu (Mac/Linux)")
@@ -67,6 +69,7 @@ def main(argv=None):
     media.start()
     server = serve(args.port)
     port = server.server_address[1]
+    print(f"idash {VERSION}")
     print(f"Accueil          : http://localhost:{port}/")
     print(f"Compteur defaut  : http://localhost:{port}/dashboard")
     print(f"Apercu sans jeu  : http://localhost:{port}/dashboard?demo")

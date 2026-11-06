@@ -105,6 +105,30 @@ Les fichiers générés sont dans `custom/` (ignoré par git) :
 dans `studio/runtime.js` ; la bibliothèque d'icônes Lucide est sous licence ISC
 (voir `studio/ICONS_LICENSE.txt`).
 
+## Mises à jour (sans git)
+
+L'app dispose d'une page **`/update`** (lien « Mise à jour » sur l'accueil et
+les réglages) :
+
+1. télécharge le `.zip` de la dernière release depuis
+   [GitHub Releases](https://github.com/redasnkrs/idashboard/releases) ;
+2. sélectionne-le dans `/update` et clique **Installer et redémarrer** ;
+3. l'app remplace le code, **conserve** `custom/`, `game.json`,
+   `themes/active.json`, `.profile-7/` et le venv éventuel, puis redémarre.
+
+Le dépôt étant privé, il faut être connecté à GitHub pour télécharger le ZIP.
+Le ZIP de release est construit sans git et sans données utilisateur.
+
+### Créer une release
+
+1. Incrémente `VERSION` (ex. `0.6.1`), commit et push.
+2. Pousse un tag : `git tag v0.6.1 && git push origin v0.6.1`.
+3. Le workflow `.github/workflows/release.yml` construit
+   `dist/idash-vX.Y.Z.zip` et crée la release GitHub avec le ZIP.
+
+En local : `python tools/build_release.py` puis upload manuel du ZIP dans une
+release GitHub.
+
 ## Routes
 
 | Route | Contenu |
@@ -117,6 +141,9 @@ dans `studio/runtime.js` ; la bibliothèque d'icônes Lucide est sous licence IS
 | `/dashboard/<catégorie>/<nom>/manifest.json` | métadonnées du compteur |
 | `/settings` | réglages (couleurs, unités, blocs) avec aperçu live |
 | `/studio` | éditeur de compteurs personnalisés |
+| `/update` | mise à jour par ZIP de release |
+| `/api/update/info` | version installée + URL des releases |
+| `/api/update/install` | installe un ZIP de release et redémarre (POST) |
 | `/dashboard/custom/<id>` | compteur créé dans le Studio |
 | `/custom/previews/<id>.svg` | aperçu d'un compteur perso |
 | `/custom/icons/<fichier>` | icône perso uploadée |
@@ -159,7 +186,12 @@ core/          schema.py (contrat), config.py, pump.py (lecture), server.py,
                (catalogue des compteurs), launcher.py (Chrome sur le 7"),
                nav_snippet.py (balayage tactile), game.py (lancement AC Evo),
                media.py + media_smtc.ps1 (média Windows / Cider),
-               studio.py (layouts + icônes personnalisés)
+               studio.py (layouts + icônes personnalisés),
+               updater.py (ZIP de release + redémarrage)
+update/        index.html (page de mise à jour)
+tools/         build_release.py (ZIP), apply_update.py (application + relance)
+.github/       workflows/release.yml (release auto sur tag vX.Y.Z)
+VERSION        version de l'app (affichée dans l'interface)
 studio/        index.html + editor.js/css, runtime.js, icons.js (éditeur/runtime)
 custom/        layouts/, previews/, icons/  (données utilisateur, hors git)
 adapters/      base.py (interface), fake.py (tests), auto.py (détection),
@@ -187,5 +219,5 @@ Ajouter un jeu = écrire un adaptateur qui respecte `adapters/base.py`.
 ```
 python -m unittest discover -s tests -v
 python -m tests.visual_check     # captures 1024x600/560, accueil, réglages,
-                                 # studio + compteur perso, preview.png
+                                 # studio, compteur perso, mise à jour, previews
 ```

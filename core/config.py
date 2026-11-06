@@ -12,6 +12,18 @@ DASHBOARDS_DIR = ROOT / "dashboards"
 HOME_FILE = ROOT / "home" / "index.html"
 SETTINGS_FILE = ROOT / "settings" / "index.html"
 STUDIO_DIR = ROOT / "studio"
+UPDATE_FILE = ROOT / "update" / "index.html"
+VERSION_FILE = ROOT / "VERSION"
+
+
+def _read_version():
+    try:
+        return VERSION_FILE.read_text(encoding="utf-8").strip() or "dev"
+    except OSError:
+        return "dev"
+
+
+VERSION = _read_version()
 
 PORT = int(os.environ.get("IDASH_PORT", "25555"))
 POLL_HZ = int(os.environ.get("IDASH_POLL_HZ", "60"))

@@ -2,7 +2,7 @@
 
 > **Pour les assistants IA (Claude, Cursor, Copilot, opencode…)** : lis ce fichier en entier avant de toucher au code. Il décrit le projet, ce qui existe réellement, ce qui est vérifié ou non, et ce qu'il reste à faire. Mets-le à jour à chaque étape terminée (cases à cocher, section « Faits vérifiés »).
 >
-> Nom du projet : à définir. Auteur : Reda. Dernière mise à jour : 2026-11-05.
+> Nom du projet : idash. Auteur : Reda. Dernière mise à jour : 2026-11-06.
 
 ## 1. Le projet
 
@@ -41,7 +41,13 @@ Structure après la Phase 2 et le début de la Phase 3 :
 | `core/game.py` | Lancement d'AC Evo : chemin `game.json`, détection Steam, repli protocole Steam. |
 | `core/media.py` + `core/media_smtc.ps1` | Média Windows (SMTC) : Cider prioritaire, pochette, timeline, contrôles. |
 | `core/studio.py` | Stockage/validation des layouts et icônes personnalisés (`custom/`). |
+| `core/updater.py` | Mise à jour par ZIP de release, staging, validation et relance. |
 | `studio/` | Éditeur `/studio`, runtime par widgets, bibliothèque d'icônes. |
+| `update/index.html` | Page `/update` (ZIP de release + redémarrage). |
+| `tools/build_release.py` | Construit le ZIP de release (sans données utilisateur). |
+| `tools/apply_update.py` | Applique le staging après arrêt et relance l'app. |
+| `.github/workflows/release.yml` | Release automatique sur tag `vX.Y.Z`. |
+| `VERSION` | Version affichée dans l'app. |
 | `custom/` | Layouts, aperçus et icônes de l'utilisateur (hors git). |
 | `game.json` | Chemin de l'exécutable du jeu (réglage local, hors git). |
 | `adapters/acevo.py` | Source AC Evo (mémoire partagée, structures `ctypes`). |
@@ -101,6 +107,9 @@ est utilisé sur le PC.
 | `/api/layouts` | `GET` liste / `POST` création-mise à jour des layouts. |
 | `/api/layouts/<id>` | `GET` layout complet / `DELETE` suppression. |
 | `/api/icons` | `GET`/`POST` icônes perso. |
+| `/update` | Page de mise à jour par ZIP de release GitHub. |
+| `/api/update/info` | Version installée + URL des releases. |
+| `/api/update/install` | `POST` : installe un ZIP et redémarre l'app. |
 | `/api/ets2/telemetry` | Format du « ETS2 Telemetry Server », pour le plugin Macro Deck si besoin. |
 
 ### 3.2 Le tableau de bord (`dashboards/course/acevo-cluster/index.html`)
@@ -181,7 +190,7 @@ Le format `/api/ets2/telemetry` est un second format, indépendant, calqué sur 
 - Phase 1 : les 16 tests passent (`python -m unittest discover -s tests -v`) et les captures Playwright 1024x600 / 1024x560 montrent le même design qu'avant.
 - `core/schema.py` valide la sortie de `adapters/fake.py` et l'état déconnecté `{"c": false}`.
 - Phase 2 : 27 tests passent. Captures Playwright des 3 thèmes à 1024x600 et 1024x560. Une couleur changée dans `/settings` est enregistrée et appliquée dans l'aperçu sans rechargement (vérifié via Playwright, aucune erreur JS). Unités mph/°F et masquage de blocs vérifiés.
-- Phase 3/4 (partiel) : 71 tests passent (catalogue, accueil, injection `__IDASH__`, assets, redirection `/dashboard`, reset de portée, rejet d'un compteur inconnu, lanceur, réglages et lancement du jeu, API média). Captures Playwright des 3 thèmes pour les 3 compteurs, de l'accueil et des réglages, plus les états `ign=off` (veille grise) et `ign=wake` (test des voyants + balayage) ; aucune erreur JS. Le Studio et un compteur perso sont aussi capturés (éditeur + runtime + aperçu généré). Le balayage tactile gauche/droite est vérifié via Playwright (cluster ↔ minimal). Les `preview.png` sont générés depuis les pages réelles. Lancement Chrome/Steam réel, média Cider, édition Studio et offsets réels AC 2014 / AMS2 **à confirmer sur le PC**.
+- Phase 3/4 (partiel) : 80 tests passent (catalogue, accueil, injection `__IDASH__`, assets, redirection `/dashboard`, reset de portée, rejet d'un compteur inconnu, lanceur, réglages et lancement du jeu, API média). Captures Playwright des 3 thèmes pour les 3 compteurs, de l'accueil et des réglages, plus les états `ign=off` (veille grise) et `ign=wake` (test des voyants + balayage) ; aucune erreur JS. Le Studio et un compteur perso sont aussi capturés (éditeur + runtime + aperçu généré). Le balayage tactile gauche/droite est vérifié via Playwright (cluster ↔ minimal). Les `preview.png` sont générés depuis les pages réelles. Lancement Chrome/Steam réel, média Cider, édition Studio, offsets réels AC 2014 / AMS2 et installation réelle d'un ZIP de mise à jour **à confirmer sur le PC**. La page `/update` et la validation des ZIP sont testées ; le redémarrage Windows est à valider en conditions réelles.
 - Cockpit : les 3 thèmes, la track map (`npos`), la veille/réveil et le média de démo sont vérifiés sur Mac. Le vrai SMTC (pochette Cider, timeline, contrôles) n'est pas testable sur Mac ; à valider sur le PC.
 - Contact : la veille et le réveil sont vérifiés en démo Playwright sur les deux compteurs. La valeur réelle `ign` (`is_ignition_on`) reste **à confirmer sur le PC** avec `python main.py --debug`.
 
@@ -266,6 +275,7 @@ Chaque phase est utilisable seule. Ne commencer la suivante que si la précéden
 - Chaque nouvelle donnée du jeu : vérifier avec `--debug` sur le PC de l'utilisateur et l'ajouter au §5.
 
 ### Phase 6 : application de bureau
+- [x] Mises à jour sans git : page `/update`, ZIP de release GitHub, installation + redémarrage, données utilisateur préservées (`custom/`, thèmes, `game.json`, profil Chrome)
 - [ ] Choisir : rester en Python (PyInstaller ; utiliser un Python 3.12 ou 3.13 si la 3.15 n'est pas encore supportée par les outils d'emballage) **ou** porter le cœur en Rust avec Tauri (interface React + Tailwind, ce que l'utilisateur maîtrise)
 - [ ] Interface : liste des tableaux de bord, réglages, état de la connexion au jeu
 - [ ] Installateur `.exe` et mises à jour
@@ -299,10 +309,15 @@ idashboard/
   themes/        ambre-ivoire.json, rouge-sport.json, vert.json
                  active.json (choix utilisateur, hors git)
   studio/        index.html + editor.js/css, runtime.js, icons.js
+  update/        index.html (mise à jour)
+  tools/         build_release.py, apply_update.py
+  .github/       workflows/release.yml
+  VERSION        version de l'app
+  requirements.txt
   custom/        layouts/, previews/, icons/ (données utilisateur, hors git)
   tests/         test_schema.py, test_server.py, test_themes.py, test_game.py,
                  test_media.py, test_studio.py, test_launcher.py,
-                 test_sources.py, visual_check.py
+                 test_sources.py, test_updater.py, visual_check.py
   main.py        point d'entrée
   acevo_bridge.py  compatibilité (ancien nom)
   lancer.bat
@@ -326,7 +341,7 @@ Dossiers prévus plus tard : `app/` (Phase 6). Le lanceur vit dans `core/launche
 
 ### Comment tester sans le jeu (environnement Linux ou sans AC Evo)
 1. `python main.py --fake` : utilise `adapters/fake.py`, aucune dépendance Windows, mêmes routes qu'en vrai.
-2. `python -m tests.visual_check` : captures Playwright des 3 compteurs (3 thèmes, 1024x600 et 1024x560), de l'accueil, des réglages, du Studio et d'un compteur perso, et régénération des `preview.png` via le serveur.
+2. `python -m tests.visual_check` : captures Playwright des 3 compteurs (3 thèmes, 1024x600 et 1024x560), de l'accueil, des réglages, du Studio, d'un compteur perso et de la page de mise à jour, et régénération des `preview.png` via le serveur.
 3. Pour juste voir le design : `dashboards/course/acevo-cluster/index.html?demo=<secondes>` ou `dashboards/course/acevo-minimal/index.html?demo` (aucun serveur nécessaire).
 4. Tests : `python -m unittest discover -s tests -v`. Débit du flux : ~60 messages `data:` par seconde sur `/stream`.
 

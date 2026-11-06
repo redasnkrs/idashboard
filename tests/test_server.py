@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 from adapters.fake import FakeSource
-from core import game, media, pump, studio, themes
+from core import game, media, pump, studio, themes, updater
 from core.schema import validate
 from core.server import serve
 
@@ -20,6 +20,8 @@ class ServerTest(unittest.TestCase):
         themes.STATE_FILE = Path(cls.tmp.name) / "active.json"
         cls.old_game = game.GAME_FILE
         game.GAME_FILE = Path(cls.tmp.name) / "game.json"
+        cls.old_updater = updater.UPDATE_DIR
+        updater.UPDATE_DIR = Path(cls.tmp.name) / ".update"
         cls.old_studio = (studio.LAYOUTS_DIR, studio.PREVIEWS_DIR,
                           studio.ICONS_DIR)
         base = Path(cls.tmp.name) / "custom"
@@ -40,6 +42,7 @@ class ServerTest(unittest.TestCase):
         game.GAME_FILE = cls.old_game
         (studio.LAYOUTS_DIR, studio.PREVIEWS_DIR,
          studio.ICONS_DIR) = cls.old_studio
+        updater.UPDATE_DIR = cls.old_updater
         cls.tmp.cleanup()
 
     def get(self, path, timeout=5):
@@ -203,6 +206,55 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(200, status)
         self.assertIn("image/png", ctype)
         self.assertEqual(png, body)
+
+    def test_update_page(self):
+        status, ctype, body = self.get("/update")
+        self.assertEqual(200, status)
+        self.assertIn("text/html", ctype)
+        self.assertIn("Mise à jour".encode(), body)
+
+    def test_update_info(self):
+        status, _, body = self.get("/api/update/info")
+        self.assertEqual(200, status)
+        info = json.loads(body)
+        self.assertIn("version", info)
+        self.assertIn("releases_url", info)
+
+    def test_update_invalid_zip(self):
+        data = "data:application/zip;base64," + \
+            "bm90IGEgemlw"  # "not a zip"
+        status, body = self.post("/api/update/install",
+                                 {"name": "bad.zip", "data": data})
+        self.assertEqual(400, status)
+        self.assertFalse(json.loads(body)["ok"])
+
+    def test_update_valid_zip(self):
+        import base64
+        import io
+        import zipfile
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr("main.py", "# app")
+            archive.writestr("core/__init__.py", "")
+            archive.writestr("studio/x", "")
+            archive.writestr("dashboards/x", "")
+            archive.writestr("VERSION", "9.9.9")
+        data = "data:application/zip;base64," + \
+            base64.b64encode(buffer.getvalue()).decode()
+        old_spawn = updater.spawn_apply
+        old_exit = updater.schedule_exit
+        updater.spawn_apply = lambda staging: "log"
+        updater.schedule_exit = lambda delay=2.0: None
+        try:
+            status, body = self.post("/api/update/install",
+                                     {"name": "ok.zip", "data": data})
+        finally:
+            updater.spawn_apply = old_spawn
+            updater.schedule_exit = old_exit
+        self.assertEqual(200, status)
+        result = json.loads(body)
+        self.assertTrue(result["ok"])
+        self.assertEqual("9.9.9", result["version"])
 
     def test_media_art_missing(self):
         old = media.art

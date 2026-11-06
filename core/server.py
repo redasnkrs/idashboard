@@ -25,9 +25,10 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
-from core import catalog, game, launcher, media, pump, studio, themes
+from core import (catalog, game, launcher, media, pump, studio,
+                  themes, updater)
 from core.config import (DEFAULT_DASHBOARD, HOME_FILE, PORT, SETTINGS_FILE,
-                         STREAM_HZ, STUDIO_DIR, dashboard_asset,
+                         STREAM_HZ, STUDIO_DIR, UPDATE_FILE, dashboard_asset,
                          dashboard_file, dashboard_manifest, spec_for_path)
 from core.nav_snippet import NAV_HTML
 from core.schema import schema_info
@@ -83,7 +84,7 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = 0
-        if length <= 0 or length > 4 * 1024 * 1024:
+        if length <= 0 or length > 16 * 1024 * 1024:
             raise ValueError("corps JSON manquant ou trop grand")
         data = json.loads(self.rfile.read(length).decode("utf-8"))
         if not isinstance(data, dict):
@@ -103,6 +104,11 @@ class Handler(BaseHTTPRequestHandler):
             self._send(json.dumps(game.status()).encode(), "application/json")
         elif path == "/api/media":
             self._send(json.dumps(media.snapshot()).encode(),
+                       "application/json")
+        elif path == "/update":
+            self._file(UPDATE_FILE, "text/html; charset=utf-8")
+        elif path == "/api/update/info":
+            self._send(json.dumps(updater.info()).encode(),
                        "application/json")
         elif path == "/api/media/art":
             data, ctype = media.art()
@@ -201,6 +207,8 @@ class Handler(BaseHTTPRequestHandler):
             self._launch_game()
         elif path == "/api/media/control":
             self._media_control()
+        elif path == "/api/update/install":
+            self._install_update()
         elif path == "/api/layouts":
             self._save_layout()
         elif path == "/api/icons":
@@ -431,6 +439,21 @@ class Handler(BaseHTTPRequestHandler):
         result = game.launch()
         self._send(json.dumps(result).encode(), "application/json",
                    200 if result.get("ok") else 400)
+
+    def _install_update(self):
+        try:
+            payload = self._read_json()
+            prepared = updater.prepare_zip(payload.get("data"),
+                                           payload.get("name") or "update.zip")
+            updater.spawn_apply(prepared["staging"])
+        except (ValueError, OSError, KeyError, TypeError) as exc:
+            self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
+                       "application/json", 400)
+            return
+        body = json.dumps({"ok": True, "version": prepared["version"],
+                           "restart": True}).encode()
+        self._send(body, "application/json")
+        updater.schedule_exit(2.0)
 
     def _media_control(self):
         try:
