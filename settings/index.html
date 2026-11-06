@@ -100,7 +100,7 @@
   <label class="field"><span>Portée</span>
     <select id="scope">
       <option value="global">Tous les jeux (global)</option>
-      <option value="game">Jeu — Assetto Corsa Evo</option>
+      <option value="game" id="scopeGame">Jeu — Assetto Corsa Evo</option>
       <option value="car">Voiture</option>
       <option value="dashboard">Compteur</option>
     </select>
@@ -171,6 +171,8 @@
   let info = null;
   let current = null;
   let dashboards = [];
+  let GAME_KEY = 'acevo';
+  let GAME_LABEL = 'Assetto Corsa Evo';
 
   function addColor(container, key, label) {
     const row = document.createElement('label');
@@ -216,7 +218,7 @@
 
   function scopeKey() {
     const scope = $('scope').value;
-    if (scope === 'game') return 'acevo';
+    if (scope === 'game') return GAME_KEY;
     if (scope === 'car') return $('key').value.trim();
     if (scope === 'dashboard') return $('dashKey').value;
     return '';
@@ -353,7 +355,7 @@
     if (!spec) return '/dashboard?demo&nogame=1&nodash=1';
     const scope = $('scope').value;
     let url = '/dashboard/' + spec + '?demo';
-    if (scope !== 'global') url += '&game=acevo';
+    if (scope !== 'global') url += '&game=' + encodeURIComponent(GAME_KEY);
     if (scope === 'car') {
       const car = $('key').value.trim();
       if (car) url += '&car=' + encodeURIComponent(car);
@@ -370,7 +372,7 @@
   async function loadEffective() {
     const scope = $('scope').value;
     const query = [];
-    if (scope !== 'global') query.push('game=acevo');
+    if (scope !== 'global') query.push('game=' + encodeURIComponent(GAME_KEY));
     if (scope === 'car') {
       const car = $('key').value.trim();
       if (car) query.push('car=' + encodeURIComponent(car));
@@ -460,6 +462,12 @@
     try {
       const dash = await fetch('/api/dash', { cache: 'no-store' }).then(r => r.json());
       if (dash && dash.car) $('key').value = dash.car;
+      if (dash && dash.game_id) {
+        GAME_KEY = dash.game_id;
+        GAME_LABEL = dash.game || GAME_KEY.toUpperCase();
+        const opt = $('scopeGame');
+        if (opt) opt.textContent = 'Jeu — ' + GAME_LABEL;
+      }
     } catch (_) {}
 
     preset.addEventListener('change', async () => {

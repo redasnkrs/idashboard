@@ -13,7 +13,7 @@ Un tableau de bord de voiture (compteur analogique, vitesse, rapport, shift ligh
 ## 2. Environnement de l'utilisateur (contraintes réelles)
 
 - Windows 11 (interface en anglais), PC de jeu. Écran principal 2560x1440, mini écran 7" 1024x600 placé en bas à droite (coordonnées Windows : **X=2560, Y=834**, vérifié avec `System.Windows.Forms.Screen`).
-- Python **3.15** installé (`C:\Users\reda\AppData\Local\Python\pythoncore-3.15-64\python.exe`) avec le paquet `acevo-sdk` 0.2.1.
+- Python **3.15** installé (`C:\Users\reda\AppData\Local\Python\pythoncore-3.15-64\python.exe`) avec le paquet `acevo-sdk` 0.2.1. Cibles : **AC Evo**, **Assetto Corsa 2014** et **Automobilista 2** (shared memory Project CARS 2).
 - Navigateur principal : **Zen**. Le tableau de bord s'ouvre dans une fenêtre **Chrome** dédiée (`--app`, profil séparé `C:\MapDeck\profile`) pour ne pas gêner Zen.
 - **Macro Deck 3** tourne sur le 7" (boutons de raccourcis, maps de jeux). Le plugin « ETS2/ATS Telemetry » a été essayé puis abandonné (voir décisions).
 - L'utilisateur est développeur junior (React, Next.js, Tailwind, Node/Express, un peu de Python). Il préfère des réponses **courtes, directes, en français informel**.
@@ -45,6 +45,9 @@ Structure après la Phase 2 et le début de la Phase 3 :
 | `custom/` | Layouts, aperçus et icônes de l'utilisateur (hors git). |
 | `game.json` | Chemin de l'exécutable du jeu (réglage local, hors git). |
 | `adapters/acevo.py` | Source AC Evo (mémoire partagée, structures `ctypes`). |
+| `adapters/ac.py` + `ac_defs.py` | Source Assetto Corsa 2014 (`acpmf_*`). |
+| `adapters/ams2.py` + `ams2_defs.py` | Source Automobilista 2 (`$pcars2$`). |
+| `adapters/auto.py` | Détection automatique AC Evo → AC → AMS2. |
 | `adapters/fake.py` | Fausse source animée pour Mac/Linux/tests. |
 | `adapters/base.py` | Interface commune des sources (`read()`, `ets2()`). |
 | `dashboards/course/acevo-cluster/` | `index.html` + `manifest.json` + `preview.png` (compteur à aiguille centrale). |
@@ -159,6 +162,7 @@ Une valeur inconnue ou incohérente vaut `null` (la page affiche `--`). Les clé
 | `tcl`, `absl` | int ou null | niveau de TC et d'ABS réglés |
 | `bb` | nombre ou null | balance de freinage, % |
 | `car`, `track`, `cfg`, `mode` | texte | voiture, circuit, configuration, mode de conduite (SPORT+…) |
+| `game`, `game_id` | texte | jeu détecté (`Assetto Corsa Evo`/`acevo`, `Assetto Corsa`/`ac`, `Automobilista 2`/`ams2`) |
 
 Le format `/api/ets2/telemetry` est un second format, indépendant, calqué sur l'API du serveur ETS2 (`game`, `truck`, `navigation`, `trailer`, `job`).
 
@@ -177,7 +181,7 @@ Le format `/api/ets2/telemetry` est un second format, indépendant, calqué sur 
 - Phase 1 : les 16 tests passent (`python -m unittest discover -s tests -v`) et les captures Playwright 1024x600 / 1024x560 montrent le même design qu'avant.
 - `core/schema.py` valide la sortie de `adapters/fake.py` et l'état déconnecté `{"c": false}`.
 - Phase 2 : 27 tests passent. Captures Playwright des 3 thèmes à 1024x600 et 1024x560. Une couleur changée dans `/settings` est enregistrée et appliquée dans l'aperçu sans rechargement (vérifié via Playwright, aucune erreur JS). Unités mph/°F et masquage de blocs vérifiés.
-- Phase 3 (partiel) : 68 tests passent (catalogue, accueil, injection `__IDASH__`, assets, redirection `/dashboard`, reset de portée, rejet d'un compteur inconnu, lanceur, réglages et lancement du jeu, API média). Captures Playwright des 3 thèmes pour les 3 compteurs, de l'accueil et des réglages, plus les états `ign=off` (veille grise) et `ign=wake` (test des voyants + balayage) ; aucune erreur JS. Le Studio et un compteur perso sont aussi capturés (éditeur + runtime + aperçu généré). Le balayage tactile gauche/droite est vérifié via Playwright (cluster ↔ minimal). Les `preview.png` sont générés depuis les pages réelles. Lancement Chrome/Steam réel, média Cider et édition Studio sur le PC **à confirmer**.
+- Phase 3/4 (partiel) : 71 tests passent (catalogue, accueil, injection `__IDASH__`, assets, redirection `/dashboard`, reset de portée, rejet d'un compteur inconnu, lanceur, réglages et lancement du jeu, API média). Captures Playwright des 3 thèmes pour les 3 compteurs, de l'accueil et des réglages, plus les états `ign=off` (veille grise) et `ign=wake` (test des voyants + balayage) ; aucune erreur JS. Le Studio et un compteur perso sont aussi capturés (éditeur + runtime + aperçu généré). Le balayage tactile gauche/droite est vérifié via Playwright (cluster ↔ minimal). Les `preview.png` sont générés depuis les pages réelles. Lancement Chrome/Steam réel, média Cider, édition Studio et offsets réels AC 2014 / AMS2 **à confirmer sur le PC**.
 - Cockpit : les 3 thèmes, la track map (`npos`), la veille/réveil et le média de démo sont vérifiés sur Mac. Le vrai SMTC (pochette Cider, timeline, contrôles) n'est pas testable sur Mac ; à valider sur le PC.
 - Contact : la veille et le réveil sont vérifiés en démo Playwright sur les deux compteurs. La valeur réelle `ign` (`is_ignition_on`) reste **à confirmer sur le PC** avec `python main.py --debug`.
 
@@ -185,7 +189,7 @@ Le format `/api/ets2/telemetry` est un second format, indépendant, calqué sur 
 - 2026-11-05 : après `git pull`, `lancer.bat` démarre le pont et le compteur s'affiche correctement sur le 7" depuis la nouvelle structure (vraie source AC Evo). Phase 1 confirmée.
 
 ### Pas vérifié valeur par valeur (layout issu de `kerb`, lecture cohérente mais à confirmer)
-Nom de la voiture et du circuit, temps au tour (dernier, meilleur, delta), position, niveaux TC/ABS, balance de freinage, températures d'eau et d'huile, frein à main, voie des stands, **contact (`is_ignition_on`)**, **`npos`**, **`mode` (`performance_mode_name`)** et **`at`**. Pour confirmer : lancer `python acevo_bridge.py --debug` et regarder la ligne affichée toutes les 0,5 s (`ign=… run=… npos=… mode=… at=…`). Le média Cider (SMTC, pochette, timeline, contrôles) est à valider sur le PC.
+Nom de la voiture et du circuit, temps au tour (dernier, meilleur, delta), position, niveaux TC/ABS, balance de freinage, températures d'eau et d'huile, frein à main, voie des stands, **contact (`is_ignition_on`)**, **`npos`**, **`mode` (`performance_mode_name`)** et **`at`**. Pour confirmer : lancer `python acevo_bridge.py --debug` et regarder la ligne affichée toutes les 0,5 s (`ign=… run=… npos=… mode=… at=…`). Le média Cider (SMTC, pochette, timeline, contrôles) est à valider sur le PC. Les offsets/valeurs réels **AC 2014** (`acpmf_*`) et **AMS2** (`$pcars2$`, mode Project CARS 2) sont à confirmer en jeu ; la conversion est testée avec des structures factices.
 
 ### Pièges déjà rencontrés (ne pas les refaire)
 - **Plugin Macro Deck ETS2** : il interroge le serveur toutes les 200 ms (5 Hz) → aiguille saccadée. C'est pour ça que le tableau de bord est une page web à 60 Hz.
@@ -241,7 +245,8 @@ Chaque phase est utilisable seule. Ne commencer la suivante que si la précéden
 - **Terminé quand** : un clic (ou le lancement du jeu) ouvre le bon tableau de bord sur le bon écran. *(à confirmer sur le PC pour le lancement réel)*
 
 ### Phase 4 : deuxième jeu (valide l'architecture)
-- [ ] Définir l'interface d'une source : `read() -> dict | None` au format du §4
+- [x] Définir l'interface d'une source : `read() -> dict | None` au format du §4
+- [x] Sources **Assetto Corsa 2014** (`acpmf_*`) et **Automobilista 2** (`$pcars2$`), détection auto AC Evo → AC → AMS2, contrat commun et nom de jeu dynamique
 - [ ] Source **iRacing** (bibliothèque `pyirsdk`, mémoire partagée aussi), réutilisant le même tableau de bord
 - [ ] Ce qui manque dans le format commun est ajouté en clés optionnelles, sans casser AC Evo
 - [ ] **Catégorie Aviation** : source (MSFS via SimConnect, ou DCS), **nouveau contrat de données** dédié à l'avion, et au moins un tableau de bord d'instruments (altitude, vitesse, cap, horizon artificiel)
@@ -283,7 +288,8 @@ idashboard/
                  game.py (lancement AC Evo), media.py + media_smtc.ps1,
                  studio.py (layouts/icônes perso)
   game.json      chemin du jeu (hors git)
-  adapters/      base.py, acevo.py, fake.py  (iracing.py plus tard)
+  adapters/      base.py, fake.py, auto.py, acevo.py,
+                 ac.py + ac_defs.py, ams2.py + ams2_defs.py
   dashboards/    course/acevo-cluster/  index.html + manifest.json + preview.png
                  course/acevo-minimal/  idem
                  course/acevo-cockpit/  idem (track map + média)
@@ -295,7 +301,8 @@ idashboard/
   studio/        index.html + editor.js/css, runtime.js, icons.js
   custom/        layouts/, previews/, icons/ (données utilisateur, hors git)
   tests/         test_schema.py, test_server.py, test_themes.py, test_game.py,
-                 test_media.py, test_studio.py, test_launcher.py, visual_check.py
+                 test_media.py, test_studio.py, test_launcher.py,
+                 test_sources.py, visual_check.py
   main.py        point d'entrée
   acevo_bridge.py  compatibilité (ancien nom)
   lancer.bat

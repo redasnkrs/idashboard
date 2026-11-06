@@ -39,7 +39,8 @@ class SchemaTest(unittest.TestCase):
 
     def test_contract_has_expected_keys(self):
         for key in ("c", "v", "r", "rm", "g", "fuel", "lap", "car",
-                    "ign", "run", "npos", "mode", "at"):
+                    "ign", "run", "npos", "mode", "at", "game",
+                    "game_id"):
             self.assertIn(key, DASH_SCHEMA)
 
 

@@ -1,8 +1,8 @@
-# Tableau de bord mini écran (Assetto Corsa Evo)
+# Tableau de bord mini écran (AC Evo, AC 2014, AMS2)
 
 Tableau de bord de voiture sur mini écran 7" (1024x600), alimenté par la
-télémétrie d'Assetto Corsa Evo. Voir `Mini Deck App Roadmap.md` pour le projet
-complet et les phases.
+télémétrie d'Assetto Corsa Evo, d'Assetto Corsa 2014 ou d'Automobilista 2.
+Voir `Mini Deck App Roadmap.md` pour le projet complet et les phases.
 
 ## Installation (PC Windows)
 
@@ -41,6 +41,23 @@ pendant ~2,4 s avant l'affichage normal. Pour tester sans le jeu :
 Sur le 7" tactile, un balayage vers la gauche passe au compteur suivant, vers
 la droite au précédent (le catalogue boucle). Les flèches ← / → font la même
 chose au clavier. Le balayage est désactivé dans l'aperçu des réglages.
+
+## Sources de télémétrie
+
+Le pont lit en priorité le jeu qu'il trouve (détection automatique) :
+
+- **Assetto Corsa Evo** (`acevo_pmf_*`, via `acevo-sdk`) ;
+- **Assetto Corsa 2014** (`acpmf_*`, shared memory classique) ;
+- **Automobilista 2** (`$pcars2$`, mode Shared Memory « Project CARS 2 » à
+  activer dans les options du jeu).
+
+Pour forcer une source : `python main.py --game ac`, `--game ams2` ou
+`--game acevo`. Sans option, le pont essaie AC Evo, puis AC, puis AMS2.
+Les compteurs utilisent le contrat commun ; le nom du jeu et le thème
+s'adaptent au jeu détecté. AC 2014 ne fournit pas le contact, les
+feux/clignotants ni la température d'eau dans sa shared memory : ces champs
+restent vides ou fixes (le reste — vitesse, rpm, rapport, carburant, temps,
+position — fonctionne).
 
 ## Lancer Assetto Corsa Evo
 
@@ -145,7 +162,9 @@ core/          schema.py (contrat), config.py, pump.py (lecture), server.py,
                studio.py (layouts + icônes personnalisés)
 studio/        index.html + editor.js/css, runtime.js, icons.js (éditeur/runtime)
 custom/        layouts/, previews/, icons/  (données utilisateur, hors git)
-adapters/      acevo.py (source du jeu), fake.py (tests), base.py (interface)
+adapters/      base.py (interface), fake.py (tests), auto.py (détection),
+               acevo.py, ac.py + ac_defs.py (AC 2014),
+               ams2.py + ams2_defs.py (AMS2, licence dans AMS2_DEFS_LICENSE.txt)
 dashboards/    course/acevo-cluster/  compteur complet
                course/acevo-minimal/  compteur minimal
                course/acevo-cockpit/  cockpit 3 colonnes + média

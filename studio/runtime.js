@@ -707,6 +707,7 @@
       delta: Math.sin(t / 3) * 420, valid: true, pos: 3, nd: 12,
       npos: (t / 90) % 1, car: "FERRARI 296 GT3", track: "MONZA",
       cfg: "GRAND PRIX", mode: "SPORT+",
+      game: "Assetto Corsa Evo", game_id: "acevo",
     };
   }
 
@@ -823,8 +824,9 @@
     build();
     const DASHBOARD = params.has("nodash") ? null :
       (params.get("dashboard") || meta.spec || null);
-    const GAME = params.has("nogame") ? null :
-      (params.get("game") || meta.game_id || null);
+    const GAME_OVERRIDE = params.get("game");
+    let GAME = params.has("nogame") ? null :
+      (GAME_OVERRIDE || meta.game_id || null);
     const CAR = params.get("car") || null;
     async function loadTheme(car) {
       const q = [];
@@ -911,7 +913,16 @@
     function frame(now) {
       const raw = demo ? demoState(now / 1000 + demoOffset, demoIgn) : state;
       const live = !!raw.c && (demo || now - lastMsg < 2000);
-      if (wait) wait.style.display = live ? "none" : "";
+      if (wait) {
+        wait.style.display = live ? "none" : "";
+        const title = wait.querySelector("div");
+        if (title && raw.game) title.textContent = "Waiting for " + raw.game;
+      }
+      if (!demo && raw.game_id && raw.game_id !== GAME &&
+          !params.has("nogame") && !GAME_OVERRIDE) {
+        GAME = raw.game_id;
+        loadTheme(themeCar || CAR);
+      }
       if (!demo && raw.car && raw.car !== themeCar) {
         themeCar = raw.car;
         loadTheme(themeCar);

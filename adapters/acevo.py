@@ -227,6 +227,7 @@ def build_dash(phys, gfx, st):
         "tcl": level(elec[0]), "absl": level(elec[2]),
         "bb": plausible(bb, 20, 90),
         "car": car, "track": track, "cfg": cfg, "mode": mode,
+        "game": "Assetto Corsa Evo", "game_id": "acevo",
     }
 
 

@@ -60,6 +60,8 @@ DASH_SCHEMA = {
     "track": "str",
     "cfg": "str",
     "mode": "str",
+    "game": "str",
+    "game_id": "str",
 }
 
 

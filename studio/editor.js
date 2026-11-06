@@ -10,7 +10,8 @@
     "fuel", "fp", "fpl", "laps", "low", "high", "L", "R", "haz", "pit",
     "pitlane", "tc", "abs", "esc", "lim", "up", "run", "ign", "wt", "ot",
     "op", "boost", "at", "lap", "last", "best", "delta", "valid", "pos",
-    "nd", "npos", "tcl", "absl", "bb", "car", "track", "cfg", "mode"];
+    "nd", "npos", "tcl", "absl", "bb", "car", "track", "cfg", "mode",
+    "game", "game_id"];
   const FORMATS = ["int", "float1", "float2", "time", "clock", "delta",
     "gear", "text", "percent"];
   const UNITS = ["auto", "kmh", "mph", "c", "f", "l", "bar", "percent",

@@ -294,7 +294,7 @@
   <g id="wait">
     <rect id="waitBg" width="1024" height="600" fill="#000" opacity=".95"/>
     <circle class="dot" cx="512" cy="268" r="7" fill="var(--amber)"/>
-    <text x="512" y="320" text-anchor="middle" font-size="28" class="big">Waiting for Assetto Corsa Evo</text>
+    <text id="waitTitle" x="512" y="320" text-anchor="middle" font-size="28" class="big">Waiting for Assetto Corsa Evo</text>
     <text x="512" y="352" text-anchor="middle" font-size="16"
           fill="var(--muted)">Start a driving session to display telemetry</text>
   </g>
@@ -538,8 +538,11 @@
   const META = window.__IDASH__ || {};
   const DASHBOARD = params.has('nodash') ? null :
     (params.get('dashboard') || META.spec || null);
-  const GAME = params.has('nogame') ? null :
-    (params.get('game') || META.game_id || 'acevo');
+  const GAME_OVERRIDE = params.get('game');
+  let GAME = params.has('nogame') ? null :
+    (GAME_OVERRIDE || META.game_id || 'acevo');
+  let gameName = META.game || 'Assetto Corsa Evo';
+  const waitTitle = $('waitTitle');
   const CAR_PARAM = params.get('car');
   const HTTP = location.protocol === 'http:' || location.protocol === 'https:';
   let tgt = { c: false }, lastMsg = 0, themeCar = null;
@@ -869,12 +872,23 @@
     });
   }
 
+  if (waitTitle) waitTitle.textContent = 'Waiting for ' + gameName;
+
   function frame(now) {
     const dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
     const raw = demo ? demoData(now / 1000) : tgt;
     const live = !!raw.c && (demo || now - lastMsg < 2000);
     const power = updatePower(raw, live, now);
     const d = power.data;
+    if (d.game && d.game !== gameName) {
+      gameName = d.game;
+      if (waitTitle) waitTitle.textContent = 'Waiting for ' + gameName;
+    }
+    if (!params.has('nogame') && !GAME_OVERRIDE && d.game_id &&
+        d.game_id !== GAME) {
+      GAME = d.game_id;
+      fetchTheme();
+    }
 
     setA('wait', 'display', live ? 'none' : 'inline');
     if (live) {

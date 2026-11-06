@@ -50,6 +50,7 @@ class FakeSource(Source):
             "tcl": 3, "absl": 2, "bb": 56.5,
             "car": "FERRARI 296 GT3", "track": "MONZA", "cfg": "GRAND PRIX",
             "mode": "SPORT+", "at": 25.0,
+            "game": "Assetto Corsa Evo", "game_id": "acevo",
         }
         self._dash = dash
         return dash

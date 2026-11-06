@@ -257,6 +257,14 @@
       $('count').textContent = all.length;
       $('live').className = 'dot ok';
       $('liveTxt').textContent = 'pont local actif';
+      fetch('/api/dash', { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : null)
+        .then(dash => {
+          if (dash && dash.c && dash.game) {
+            $('liveTxt').textContent = dash.game;
+          }
+        })
+        .catch(() => {});
       paint();
     } catch (e) {
       $('live').className = 'dot err';
