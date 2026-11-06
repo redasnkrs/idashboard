@@ -6,13 +6,26 @@ Voir `Mini Deck App Roadmap.md` pour le projet complet et les phases.
 
 ## Installation (PC Windows)
 
-1. Python 3.12+ et le paquet du jeu :
+### Version .exe (recommandée)
+
+1. Télécharge `idash-vX.Y.Z-win64.zip` depuis la dernière release GitHub.
+2. Extrais le ZIP où tu veux, puis lance `idash.exe`.
+3. Aucun Python à installer. Les logs sont dans `logs/idash.log`.
+
+Le tray permet d'ouvrir l'accueil, les réglages, de redémarrer ou de quitter.
+Le démarrage avec Windows et la réouverture automatique du 7" sont dans
+`/settings` → Système.
+
+### Version source (développement)
+
+1. Python 3.12+ et les dépendances :
 
    ```
-   pip install acevo-sdk
+   pip install -r requirements-windows.txt
    ```
 
 2. Lancement : double-clique `lancer.bat` (ou `python main.py`).
+   `python main.py --fake --no-tray` permet de tester sans jeu ni icône tray.
 
 3. Ouvre `http://localhost:25555/` : la page d'accueil liste les compteurs.
    « Ouvrir sur le 7" » lance Chrome en mode application sur le mini écran
@@ -70,7 +83,9 @@ position — fonctionne).
 - **Apparence** : thème, portée (global/jeu/voiture/compteur), couleurs,
   unités et blocs, avec un aperçu compact.
 - **Compteurs** : compteur par défaut (utilisé par `/dashboard` et l'accueil).
-- **Système** : version, source de télémétrie active, mise à jour.
+- **Système** : version, source de télémétrie active, mode exe/source,
+  santé (`/api/health`), logs, démarrage Windows, réouverture du 7",
+  redémarrage et mise à jour.
 
 Les chemins de jeux et l'écran sont dans `app.json` (ignoré par git).
 
@@ -129,6 +144,11 @@ dans `studio/runtime.js` ; la bibliothèque d'icônes Lucide est sous licence IS
 (voir `studio/ICONS_LICENSE.txt`).
 
 ## Mises à jour (sans git)
+
+Deux ZIP sont publiés : `idash-vX.Y.Z-win64.zip` (application .exe) et
+`idash-vX.Y.Z.zip` (source, pour les anciennes installations). Les deux
+préservent `custom/`, `app.json`, `game.json`, `themes/active.json` et le
+profil Chrome.
 
 L'app dispose d'une page **`/update`** (lien « Mise à jour » sur l'accueil et
 les réglages) :

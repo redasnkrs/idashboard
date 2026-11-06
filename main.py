@@ -8,13 +8,20 @@
     python main.py --debug          affiche les valeurs lues toutes les 0,5 s
 """
 import argparse
+import logging
+import os
 import sys
 import threading
+import time
 
-from core import media
+from core import (app_control, app_settings, instance, launcher, media, tray,
+                  watchdog)
 from core.config import PORT, VERSION
+from core.logging_setup import setup as setup_logging
 from core.pump import poll_loop
 from core.server import serve
+
+log = logging.getLogger("idash")
 
 
 def _make_source(fake, game):
@@ -61,14 +68,36 @@ def main(argv=None):
                     choices=("auto", "acevo", "ac", "ams2", "fake"),
                     help="source de telemetrie (defaut: detection auto)")
     ap.add_argument("--port", type=int, default=PORT)
+    ap.add_argument("--no-tray", action="store_true")
     args = ap.parse_args(argv)
 
+    setup_logging(args.debug)
+    if not instance.acquire():
+        for _ in range(20 if os.environ.get("IDASH_RESTART") else 1):
+            time.sleep(0.25)
+            if instance.acquire():
+                break
+        else:
+            app_control.open_home()
+            print("idash est deja lance.")
+            return 0
+    log.info("idash %s demarrage (frozen=%s)", VERSION,
+             getattr(sys, "frozen", False))
     source = _make_source(args.fake, args.game)
     threading.Thread(target=poll_loop, args=(source, args.debug),
                      daemon=True).start()
     media.start()
     server = serve(args.port)
     port = server.server_address[1]
+    watchdog.start()
+    if not args.no_tray and not args.fake:
+        tray.start(
+            on_open=lambda: launcher.open_dashboard(
+                app_settings.last_dashboard() or
+                app_settings.default_dashboard()),
+            on_settings=app_control.open_settings,
+            on_restart=app_control.restart,
+            on_quit=app_control.quit_app)
     print(f"idash {VERSION}")
     print(f"Accueil          : http://localhost:{port}/")
     print(f"Compteur defaut  : http://localhost:{port}/dashboard")
@@ -82,6 +111,12 @@ def main(argv=None):
         server.serve_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        watchdog.stop()
+        tray.stop()
+        instance.release()
+        log.info("idash arrete")
+    return 0
 
 
 if __name__ == "__main__":

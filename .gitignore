@@ -21,6 +21,8 @@ Thumbs.db
 
 # Sorties locales / captures de test
 *.log
+logs/
+.idash.lock
 screenshots/
 tests/screenshots/
 test-results/

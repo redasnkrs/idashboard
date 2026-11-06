@@ -263,11 +263,27 @@
       <div class="kv"><span>Version</span><span id="systemVersion">…</span></div>
       <div class="kv"><span>Source télémétrie</span><span id="systemSource">…</span></div>
       <div class="kv"><span>Compteur par défaut</span><span id="systemDefault">…</span></div>
+      <div class="kv"><span>Mode</span><span id="systemMode">…</span></div>
+      <div class="kv"><span>Télémétrie</span><span id="systemTelemetry">…</span></div>
+      <div class="kv"><span>Fenêtre 7"</span><span id="systemChrome">…</span></div>
+      <div class="kv"><span>Démarrage Windows</span>
+        <label class="checks" style="display:flex;gap:7px;align-items:center">
+          <input type="checkbox" id="startupToggle"> Lancer idash au démarrage
+        </label>
+      </div>
+      <div class="kv"><span>Écran du 7"</span>
+        <label class="checks" style="display:flex;gap:7px;align-items:center">
+          <input type="checkbox" id="keepScreenToggle"> Rouvrir si fermé
+        </label>
+      </div>
       <div class="system-links">
         <a href="/update">Mise à jour</a>
         <a href="/studio">Studio</a>
         <a href="/">Accueil</a>
+        <button id="openLogs" class="ghost" type="button">Ouvrir les logs</button>
+        <button id="restartApp" class="ghost" type="button">Redémarrer</button>
       </div>
+      <p class="hint" id="systemHint"></p>
     </div>
   </section>
 </div>
@@ -720,7 +736,52 @@
       $('systemDefault').textContent = data.default_dashboard ||
         (select.selectedOptions[0] && select.selectedOptions[0].textContent) || '--';
       $('systemVersion').textContent = 'v' + (data.version || 'dev');
+      $('startupToggle').checked = !!(data.startup && data.startup.enabled);
+      $('startupToggle').disabled = !(data.startup && data.startup.available);
+      $('keepScreenToggle').checked = !!data.keep_screen;
+      $('systemMode').textContent = data.frozen ? 'application .exe' : 'source Python';
+      if (!(data.startup && data.startup.available)) {
+        $('systemHint').textContent = 'Le démarrage automatique est disponible sous Windows.';
+      }
     } catch (e) {}
+  }
+  async function loadHealth() {
+    try {
+      const h = await fetch('/api/health', { cache: 'no-store' }).then(r => r.json());
+      const age = h.telemetry_age_ms;
+      $('systemTelemetry').textContent = !h.connected ? 'En attente du jeu' :
+        (age != null && age < 2500 ? 'Active (' + (h.game || h.game_id || 'jeu') + ')' :
+          'Périmée depuis ' + Math.round((age || 0) / 1000) + ' s');
+      $('systemChrome').textContent = h.launcher_running ? 'Ouverte' : 'Fermée';
+      $('systemHint').textContent = 'Uptime ' + h.uptime_s + ' s · PID ' + h.pid +
+        (h.watchdog && h.watchdog.relaunches ? ' · relances 7" : ' + h.watchdog.relaunches : '');
+    } catch (e) {}
+  }
+  async function saveKeepScreen() {
+    try {
+      const r = await fetch('/api/app', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keep_screen: $('keepScreenToggle').checked }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) throw new Error(data.error || 'échec');
+      toast('Réglage enregistré.');
+    } catch (e) { toast('Échec : ' + e.message, true); }
+  }
+  async function saveStartup() {
+    try {
+      const r = await fetch('/api/startup', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: $('startupToggle').checked }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) throw new Error(data.error || 'échec');
+      toast(data.startup.enabled ? 'Démarrage Windows activé.' :
+        'Démarrage Windows désactivé.');
+    } catch (e) {
+      $('startupToggle').checked = !$('startupToggle').checked;
+      toast('Échec : ' + e.message, true);
+    }
   }
   async function saveDefault() {
     try {
@@ -797,6 +858,18 @@
     $('screenSave').addEventListener('click', saveScreen);
     $('screenTest').addEventListener('click', testScreen);
     $('saveDefault').addEventListener('click', saveDefault);
+    $('keepScreenToggle').addEventListener('change', saveKeepScreen);
+    $('startupToggle').addEventListener('change', saveStartup);
+    $('openLogs').addEventListener('click', async () => {
+      await fetch('/api/open-logs', { method: 'POST' });
+    });
+    $('restartApp').addEventListener('click', async () => {
+      if (!confirm('Redémarrer idash maintenant ?')) return;
+      await fetch('/api/restart', { method: 'POST' });
+      toast('Redémarrage…');
+    });
+    loadHealth();
+    setInterval(loadHealth, 5000);
     addEventListener('resize', fitPreview);
 
     await loadApp();

@@ -16,12 +16,12 @@ import time
 import zipfile
 from pathlib import Path, PurePosixPath
 
-from core.config import ROOT, VERSION
+from core.config import RESOURCE_DIR, ROOT, VERSION
 
 UPDATE_DIR = ROOT / ".update"
 RELEASES_URL = "https://github.com/redasnkrs/idashboard/releases"
-MAX_ZIP = 16 * 1024 * 1024
-MAX_UNZIP = 80 * 1024 * 1024
+MAX_ZIP = 160 * 1024 * 1024
+MAX_UNZIP = 512 * 1024 * 1024
 
 
 def info():
@@ -54,14 +54,25 @@ def _clean_staging():
             shutil.rmtree(path, ignore_errors=True)
 
 
+def _has_exe(path):
+    return any((path / name).is_file() for name in ("idash.exe", "IDASH.EXE"))
+
+
 def _normalize_root(staging):
     if (staging / "main.py").is_file():
-        return staging
-    candidates = [p for p in staging.iterdir()
-                  if p.is_dir() and (p / "main.py").is_file()]
+        return staging, "source"
+    if _has_exe(staging):
+        return staging, "exe"
+    candidates = []
+    for path in staging.iterdir():
+        if not path.is_dir():
+            continue
+        if (path / "main.py").is_file() or _has_exe(path):
+            candidates.append(path)
     if len(candidates) != 1:
-        raise ValueError("ZIP invalide : main.py introuvable")
-    return candidates[0]
+        raise ValueError("ZIP invalide : main.py ou idash.exe introuvable")
+    root = candidates[0]
+    return root, "exe" if _has_exe(root) else "source"
 
 
 def prepare_zip(data, name="update.zip"):
@@ -88,35 +99,52 @@ def prepare_zip(data, name="update.zip"):
                 if total > MAX_UNZIP:
                     raise ValueError("ZIP decompresse trop grand")
             archive.extractall(staging)
-        root = _normalize_root(staging)
-        for required in ("core", "studio", "dashboards"):
-            if not (root / required).is_dir():
-                raise ValueError("ZIP de release incomplet (%s)" % required)
+        root, kind = _normalize_root(staging)
+        if kind == "source":
+            for required in ("core", "studio", "dashboards"):
+                if not (root / required).is_dir():
+                    raise ValueError("ZIP de release incomplet (%s)" % required)
         version = "dev"
-        try:
-            version = (root / "VERSION").read_text(
-                encoding="utf-8").strip() or "dev"
-        except OSError:
-            pass
-        return {"staging": str(root), "version": version, "name": name}
+        for version_file in (root / "VERSION",
+                             root / "_internal" / "VERSION"):
+            try:
+                version = version_file.read_text(
+                    encoding="utf-8").strip() or "dev"
+                break
+            except OSError:
+                continue
+        return {"staging": str(root), "version": version, "name": name,
+                "kind": kind}
     except (zipfile.BadZipFile, OSError):
         shutil.rmtree(staging, ignore_errors=True)
         raise ValueError("ZIP illisible")
 
 
-def spawn_apply(staging):
-    source = ROOT / "tools" / "apply_update.py"
-    if not source.is_file():
-        raise OSError("tools/apply_update.py manquant")
+def spawn_apply(staging, kind="source"):
     UPDATE_DIR.mkdir(parents=True, exist_ok=True)
-    target = UPDATE_DIR / "apply_update.py"
-    shutil.copy2(source, target)
     log_path = UPDATE_DIR / "apply.log"
     log = open(log_path, "a", encoding="utf-8")
     log.write("\n--- update %s ---\n" % time.strftime("%Y-%m-%d %H:%M:%S"))
     log.flush()
-    cmd = [sys.executable, str(target), "--staging", staging,
-           "--root", str(ROOT), "--pid", str(os.getpid())]
+    common = ["--staging", staging, "--root", str(ROOT),
+              "--pid", str(os.getpid()), "--kind", kind]
+    if getattr(sys, "frozen", False):
+        helper = RESOURCE_DIR / "tools" / "idash-update.exe"
+        if not helper.is_file():
+            log.close()
+            raise OSError("tools/idash-update.exe manquant")
+        target = UPDATE_DIR / "idash-update.exe"
+        shutil.copy2(helper, target)
+        cmd = [str(target)] + common
+        cmd += ["--exe", str(Path(sys.executable).resolve())]
+    else:
+        source = RESOURCE_DIR / "tools" / "apply_update.py"
+        if not source.is_file():
+            log.close()
+            raise OSError("tools/apply_update.py manquant")
+        target = UPDATE_DIR / "apply_update.py"
+        shutil.copy2(source, target)
+        cmd = [sys.executable, str(target)] + common
     kwargs = {
         "cwd": str(ROOT), "stdin": subprocess.DEVNULL,
         "stdout": log, "stderr": subprocess.STDOUT,

@@ -71,9 +71,11 @@
 
   <section class="card">
     <p class="hint">
-      Télécharge le <code>.zip</code> de la dernière release depuis GitHub, puis
-      sélectionne-le ici. L'application remplace le code, garde tes données
-      (<code>custom/</code>, thèmes, <code>game.json</code>, profil Chrome) et
+      Télécharge le ZIP de la dernière release depuis GitHub, puis
+      sélectionne-le ici. <code>idash-vX.Y.Z-win64.zip</code> installe la
+      version .exe ; <code>idash-vX.Y.Z.zip</code> reste disponible pour les
+      anciennes versions. L'application garde tes données
+      (<code>custom/</code>, thèmes, <code>app.json</code>, profil Chrome) et
       redémarre automatiquement.
     </p>
     <input type="file" id="zip" accept=".zip,application/zip" hidden>
@@ -128,7 +130,7 @@
     if (!/\.zip$/i.test(file.name)) {
       status('Le fichier doit être un .zip.', 'err'); return;
     }
-    if (file.size > 16 * 1024 * 1024) {
+    if (file.size > 160 * 1024 * 1024) {
       status('ZIP trop volumineux (max 16 Mo).', 'err'); return;
     }
     const button = $('install');

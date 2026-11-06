@@ -26,8 +26,9 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
-from core import (app_settings, catalog, game, launcher, media, pump,
-                  screens, simhub, simhub_faithful, studio, themes, updater)
+from core import (app_control, app_settings, catalog, game, health, launcher,
+                  media, pump, screens, simhub, simhub_faithful, startup,
+                  studio, themes, updater)
 from core.config import (DEFAULT_DASHBOARD, HOME_FILE, PORT, SETTINGS_FILE,
                          STREAM_HZ, STUDIO_DIR, UPDATE_FILE, VERSION,
                          dashboard_asset, dashboard_file, dashboard_manifest,
@@ -81,12 +82,12 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
-    def _read_json(self):
+    def _read_json(self, max_bytes=64 * 1024 * 1024):
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = 0
-        if length <= 0 or length > 64 * 1024 * 1024:
+        if length <= 0 or length > max_bytes:
             raise ValueError("corps JSON manquant ou trop grand")
         data = json.loads(self.rfile.read(length).decode("utf-8"))
         if not isinstance(data, dict):
@@ -116,7 +117,21 @@ class Handler(BaseHTTPRequestHandler):
                        "application/json")
         elif path == "/api/app":
             body = {"version": VERSION,
-                    "default_dashboard": app_settings.default_dashboard()}
+                    "default_dashboard": app_settings.default_dashboard(),
+                    "keep_screen": app_settings.keep_screen(),
+                    "startup": startup.status(),
+                    "frozen": bool(getattr(sys, "frozen", False))}
+            self._send(json.dumps(body).encode(), "application/json")
+        elif path == "/api/health":
+            port = self.server.server_address[1]
+            self._send(json.dumps(health.info(port)).encode(),
+                       "application/json")
+        elif path == "/api/startup":
+            self._send(json.dumps(startup.status()).encode(),
+                       "application/json")
+        elif path == "/api/diagnostics":
+            from core.logging_setup import recent_errors
+            body = {"health": health.info(), "errors": recent_errors(30)}
             self._send(json.dumps(body).encode(), "application/json")
         elif path == "/api/media":
             self._send(json.dumps(media.snapshot()).encode(),
@@ -229,6 +244,14 @@ class Handler(BaseHTTPRequestHandler):
             self._save_screen()
         elif path == "/api/app":
             self._save_app()
+        elif path == "/api/startup":
+            self._save_startup()
+        elif path == "/api/open-logs":
+            self._send(json.dumps({"ok": app_control.open_logs()}).encode(),
+                       "application/json")
+        elif path == "/api/restart":
+            self._send(json.dumps({"ok": app_control.restart()}).encode(),
+                       "application/json")
         elif path.startswith("/api/games/"):
             self._game_action(path[len("/api/games/"):])
         elif path == "/api/media/control":
@@ -511,17 +534,37 @@ class Handler(BaseHTTPRequestHandler):
     def _save_app(self):
         try:
             payload = self._read_json()
-            spec = payload.get("default_dashboard")
-            item = catalog.find(spec or DEFAULT_DASHBOARD)
-            if item is None:
-                raise ValueError("compteur inconnu")
-            saved = app_settings.save_default_dashboard(item["spec"])
+            result = {"ok": True,
+                      "default_dashboard": app_settings.default_dashboard(),
+                      "keep_screen": app_settings.keep_screen()}
+            if "default_dashboard" in payload:
+                item = catalog.find(payload.get("default_dashboard") or
+                                    DEFAULT_DASHBOARD)
+                if item is None:
+                    raise ValueError("compteur inconnu")
+                result["default_dashboard"] = \
+                    app_settings.save_default_dashboard(item["spec"])
+            if "keep_screen" in payload:
+                result["keep_screen"] = app_settings.save_keep_screen(
+                    payload.get("keep_screen"))
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
+                       "application/json", 400)
+            return
+        self._send(json.dumps(result).encode(), "application/json")
+
+    def _save_startup(self):
+        try:
+            payload = self._read_json()
+            if "enabled" not in payload:
+                raise ValueError("enabled manquant")
+            startup.set_enabled(bool(payload.get("enabled")))
         except (ValueError, KeyError, TypeError, AttributeError) as exc:
             self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
                        "application/json", 400)
             return
         self._send(json.dumps({"ok": True,
-                               "default_dashboard": saved}).encode(),
+                               "startup": startup.status()}).encode(),
                    "application/json")
 
     def _game_action(self, suffix):
@@ -566,16 +609,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def _install_update(self):
         try:
-            payload = self._read_json()
+            payload = self._read_json(240 * 1024 * 1024)
             prepared = updater.prepare_zip(payload.get("data"),
                                            payload.get("name") or "update.zip")
-            updater.spawn_apply(prepared["staging"])
+            updater.spawn_apply(prepared["staging"],
+                                prepared.get("kind") or "source")
         except (ValueError, OSError, KeyError, TypeError) as exc:
             self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
                        "application/json", 400)
             return
         body = json.dumps({"ok": True, "version": prepared["version"],
-                           "restart": True}).encode()
+                           "kind": prepared.get("kind"), "restart": True}).encode()
         self._send(body, "application/json")
         updater.schedule_exit(2.0)
 

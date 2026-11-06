@@ -196,7 +196,7 @@ Le format `/api/ets2/telemetry` est un second format, indépendant, calqué sur 
 - Phase 1 : les 16 tests passent (`python -m unittest discover -s tests -v`) et les captures Playwright 1024x600 / 1024x560 montrent le même design qu'avant.
 - `core/schema.py` valide la sortie de `adapters/fake.py` et l'état déconnecté `{"c": false}`.
 - Phase 2 : 27 tests passent. Captures Playwright des 3 thèmes à 1024x600 et 1024x560. Une couleur changée dans `/settings` est enregistrée et appliquée dans l'aperçu sans rechargement (vérifié via Playwright, aucune erreur JS). Unités mph/°F et masquage de blocs vérifiés.
-- Phase 3/4 (partiel) : 97 tests passent (catalogue, accueil, injection `__IDASH__`, assets, redirection `/dashboard`, reset de portée, rejet d'un compteur inconnu, lanceur, réglages et lancement du jeu, API média). Captures Playwright des 3 thèmes pour les 3 compteurs, de l'accueil et des réglages, plus les états `ign=off` (veille grise) et `ign=wake` (test des voyants + balayage) ; aucune erreur JS. Le Studio et un compteur perso sont aussi capturés (éditeur + runtime + aperçu généré). Le balayage tactile gauche/droite est vérifié via Playwright (cluster ↔ minimal). Les `preview.png` sont générés depuis les pages réelles. Lancement Chrome/Steam réel, média Cider, édition Studio, offsets réels AC 2014 / AMS2, détection réelle des écrans Windows et installation réelle d'un ZIP de mise à jour **à confirmer sur le PC**. La page `/update` et la validation des ZIP sont testées ; le redémarrage Windows est à valider en conditions réelles.
+- Phase 3/4 (partiel) : 112 tests passent (catalogue, accueil, injection `__IDASH__`, assets, redirection `/dashboard`, reset de portée, rejet d'un compteur inconnu, lanceur, réglages et lancement du jeu, API média). Captures Playwright des 3 thèmes pour les 3 compteurs, de l'accueil et des réglages, plus les états `ign=off` (veille grise) et `ign=wake` (test des voyants + balayage) ; aucune erreur JS. Le Studio et un compteur perso sont aussi capturés (éditeur + runtime + aperçu généré). Le balayage tactile gauche/droite est vérifié via Playwright (cluster ↔ minimal). Les `preview.png` sont générés depuis les pages réelles. Lancement Chrome/Steam réel, média Cider, édition Studio, offsets réels AC 2014 / AMS2, détection réelle des écrans Windows et installation réelle d'un ZIP de mise à jour **à confirmer sur le PC**. La page `/update` et la validation des ZIP sont testées ; le redémarrage Windows est à valider en conditions réelles.
 - Cockpit : les 3 thèmes, la track map (`npos`), la veille/réveil et le média de démo sont vérifiés sur Mac. Le vrai SMTC (pochette Cider, timeline, contrôles) n'est pas testable sur Mac ; à valider sur le PC.
 - Contact : la veille et le réveil sont vérifiés en démo Playwright sur les deux compteurs. La valeur réelle `ign` (`is_ignition_on`) reste **à confirmer sur le PC** avec `python main.py --debug`.
 
@@ -283,10 +283,11 @@ Chaque phase est utilisable seule. Ne commencer la suivante que si la précéden
 - Chaque nouvelle donnée du jeu : vérifier avec `--debug` sur le PC de l'utilisateur et l'ajouter au §5.
 
 ### Phase 6 : application de bureau
-- [x] Mises à jour sans git : page `/update`, ZIP de release GitHub, installation + redémarrage, données utilisateur préservées (`custom/`, thèmes, `game.json`, profil Chrome)
-- [ ] Choisir : rester en Python (PyInstaller ; utiliser un Python 3.12 ou 3.13 si la 3.15 n'est pas encore supportée par les outils d'emballage) **ou** porter le cœur en Rust avec Tauri (interface React + Tailwind, ce que l'utilisateur maîtrise)
-- [ ] Interface : liste des tableaux de bord, réglages, état de la connexion au jeu
-- [ ] Installateur `.exe` et mises à jour
+- [x] Mises à jour sans git : page `/update`, ZIP de release GitHub, installation + redémarrage, données utilisateur préservées (`custom/`, thèmes, `app.json`, profil Chrome)
+- [x] Rester en Python + PyInstaller : build Windows via GitHub Actions (Python 3.12), exe portable `idash.exe`
+- [x] Tray, démarrage Windows, instance unique, logs rotatifs, `/api/health`, watchdog de la fenêtre 7"
+- [x] Mise à jour compatible exe : helper `idash-update.exe`, migration depuis l’ancien ZIP source, préservation des données
+- [ ] Installateur Inno Setup et signature de code
 - **Terminé quand** : quelqu'un sans Python installé peut l'installer et obtenir le tableau de bord.
 
 ### Phase 7 : optionnel

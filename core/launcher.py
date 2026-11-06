@@ -90,6 +90,11 @@ def _command(url):
     return args
 
 
+def last_spec():
+    with _lock:
+        return _last_spec
+
+
 def is_running():
     with _lock:
         return _process is not None and _process.poll() is None
@@ -114,6 +119,7 @@ def open_dashboard(spec):
     with _lock:
         if _process is not None and _process.poll() is None:
             if _last_spec == spec:
+                app_settings.save_last_dashboard(spec)
                 return {"ok": True, "url": url, "method": "already-open"}
             try:
                 _process.terminate()
@@ -125,6 +131,7 @@ def open_dashboard(spec):
         if cmd is None:
             opened = webbrowser.open(url)
             _last_spec = spec
+            app_settings.save_last_dashboard(spec)
             return {"ok": bool(opened), "url": url,
                     "method": "default-browser"}
         try:
@@ -135,4 +142,5 @@ def open_dashboard(spec):
             return {"ok": False, "url": url, "method": "error",
                     "error": str(exc)}
         _last_spec = spec
+        app_settings.save_last_dashboard(spec)
         return {"ok": True, "url": url, "method": "chrome-app"}

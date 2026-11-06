@@ -7,13 +7,13 @@ import os
 import re
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-DASHBOARDS_DIR = ROOT / "dashboards"
-HOME_FILE = ROOT / "home" / "index.html"
-SETTINGS_FILE = ROOT / "settings" / "index.html"
-STUDIO_DIR = ROOT / "studio"
-UPDATE_FILE = ROOT / "update" / "index.html"
-VERSION_FILE = ROOT / "VERSION"
+from core.paths import APP_DIR, FROZEN, LOG_DIR, RESOURCE_DIR, ROOT
+DASHBOARDS_DIR = RESOURCE_DIR / "dashboards"
+HOME_FILE = RESOURCE_DIR / "home" / "index.html"
+SETTINGS_FILE = RESOURCE_DIR / "settings" / "index.html"
+STUDIO_DIR = RESOURCE_DIR / "studio"
+UPDATE_FILE = RESOURCE_DIR / "update" / "index.html"
+VERSION_FILE = RESOURCE_DIR / "VERSION"
 
 
 def _read_version():

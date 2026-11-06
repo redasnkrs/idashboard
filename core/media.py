@@ -12,9 +12,9 @@ import sys
 import threading
 from pathlib import Path
 
-from core.config import ROOT
+from core.config import RESOURCE_DIR
 
-SCRIPT = ROOT / "core" / "media_smtc.ps1"
+SCRIPT = RESOURCE_DIR / "core" / "media_smtc.ps1"
 _IS_WIN = sys.platform == "win32"
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 _ACTIONS = {"playpause", "next", "prev"}

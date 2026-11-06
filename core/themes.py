@@ -15,10 +15,10 @@ import re
 import queue
 import threading
 
-from core.config import ROOT
+from core.config import RESOURCE_DIR, ROOT
 
-THEMES_DIR = ROOT / "themes"
-STATE_FILE = THEMES_DIR / "active.json"
+THEMES_DIR = RESOURCE_DIR / "themes"
+STATE_FILE = ROOT / "themes" / "active.json"
 
 COLOR_KEYS = {
     "ink", "ivory", "muted", "rule", "off", "amber", "red", "green", "blue",
@@ -61,7 +61,7 @@ def load_themes():
     if not THEMES_DIR.is_dir():
         return themes
     for path in sorted(THEMES_DIR.glob("*.json")):
-        if path.name == STATE_FILE.name:
+        if path.name == "active.json":
             continue
         try:
             theme = json.loads(path.read_text(encoding="utf-8"))
@@ -83,7 +83,7 @@ def load_state():
 
 
 def save_state(state):
-    THEMES_DIR.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     tmp = STATE_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False),
                    encoding="utf-8")

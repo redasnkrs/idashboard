@@ -16,6 +16,8 @@ STATE = {
     "dash": DASH_OFF,
     "ets2": DISCONNECTED_ETS2,
 }
+LAST_UPDATE = 0.0
+LAST_ERROR = ""
 
 
 def _set_disconnected():
@@ -33,8 +35,10 @@ def poll_loop(source, debug=False, hz=POLL_HZ):
             if dash is None:
                 _set_disconnected()
             else:
+                global LAST_UPDATE
                 STATE["dash"] = json.dumps(dash).encode()
                 STATE["ets2"] = source.ets2()
+                LAST_UPDATE = time.monotonic()
                 if debug and time.time() - last_log > 0.5:
                     last_log = time.time()
                     print(
@@ -53,7 +57,9 @@ def poll_loop(source, debug=False, hz=POLL_HZ):
                             dash["best"], dash["tcl"], dash["absl"],
                             dash["wt"], dash["ot"]))
         except Exception as exc:  # le jeu se ferme, memoire invalide...
+            global LAST_ERROR
             _set_disconnected()
+            LAST_ERROR = str(exc)
             if debug:
                 print("erreur lecture:", exc)
         nxt += period

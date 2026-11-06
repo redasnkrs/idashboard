@@ -309,7 +309,7 @@ class ServerTest(unittest.TestCase):
             base64.b64encode(buffer.getvalue()).decode()
         old_spawn = updater.spawn_apply
         old_exit = updater.schedule_exit
-        updater.spawn_apply = lambda staging: "log"
+        updater.spawn_apply = lambda staging, kind="source": "log"
         updater.schedule_exit = lambda delay=2.0: None
         try:
             status, body = self.post("/api/update/install",
@@ -557,6 +557,32 @@ class ServerTest(unittest.TestCase):
     def test_save_theme_rejects_bad_payload(self):
         status, _ = self.post("/api/themes", {"active": "nope"})
         self.assertEqual(400, status)
+
+    def test_health_and_startup_api(self):
+        status, _, body = self.get("/api/health")
+        self.assertEqual(200, status)
+        health = json.loads(body)
+        self.assertTrue(health["ok"])
+        self.assertIn("version", health)
+        self.assertIn("telemetry_age_ms", health)
+        status, _, body = self.get("/api/startup")
+        self.assertEqual(200, status)
+        info = json.loads(body)
+        self.assertIn("available", info)
+        self.assertIn("enabled", info)
+        status, body = self.post("/api/startup", {"enabled": False})
+        self.assertEqual(200, status)
+        self.assertTrue(json.loads(body)["ok"])
+
+    def test_keep_screen_api(self):
+        status, body = self.post("/api/app", {"keep_screen": True})
+        self.assertEqual(200, status)
+        data = json.loads(body)
+        self.assertTrue(data["ok"])
+        self.assertTrue(data["keep_screen"])
+        self.assertTrue(app_settings.keep_screen())
+        status, body = self.post("/api/app", {"keep_screen": False})
+        self.assertFalse(json.loads(body)["keep_screen"])
 
     def test_settings_page(self):
         status, ctype, body = self.get("/settings")

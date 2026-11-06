@@ -21,7 +21,8 @@ _lock = threading.Lock()
 
 
 def _empty():
-    return {"screen": {}, "games": {}, "default_dashboard": ""}
+    return {"screen": {}, "games": {}, "default_dashboard": "",
+            "keep_screen": False, "last_dashboard": ""}
 
 
 def load():
@@ -40,6 +41,11 @@ def load():
         dash = saved.get("default_dashboard")
         if isinstance(dash, str):
             state["default_dashboard"] = dash
+        if "keep_screen" in saved:
+            state["keep_screen"] = bool(saved.get("keep_screen"))
+        last = saved.get("last_dashboard")
+        if isinstance(last, str) and _SAFE_DASH.match(last):
+            state["last_dashboard"] = last
     if not isinstance(state["games"].get("acevo"), dict) or \
             not state["games"].get("acevo", {}).get("exe"):
         try:
@@ -165,6 +171,34 @@ def save_game(key, payload):
 def default_dashboard():
     dash = load().get("default_dashboard") or ""
     return dash if _SAFE_DASH.match(dash) else DEFAULT_DASHBOARD
+
+
+def keep_screen():
+    return bool(load().get("keep_screen"))
+
+
+def save_keep_screen(enabled):
+    with _lock:
+        state = load()
+        state["keep_screen"] = bool(enabled)
+        _save(state)
+        return state["keep_screen"]
+
+
+def last_dashboard():
+    value = load().get("last_dashboard") or ""
+    return value if _SAFE_DASH.match(value) else ""
+
+
+def save_last_dashboard(spec):
+    spec = (spec or "").strip().strip("/")
+    if spec and not _SAFE_DASH.match(spec):
+        return last_dashboard()
+    with _lock:
+        state = load()
+        state["last_dashboard"] = spec
+        _save(state)
+        return spec
 
 
 def save_default_dashboard(spec):

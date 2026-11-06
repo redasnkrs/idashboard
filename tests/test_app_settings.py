@@ -48,6 +48,15 @@ class AppSettingsTest(unittest.TestCase):
         data = app_settings.load()
         self.assertEqual("/tmp/acevo.exe", data["games"]["acevo"]["exe"])
 
+    def test_keep_screen_and_last_dashboard(self):
+        self.assertFalse(app_settings.keep_screen())
+        self.assertTrue(app_settings.save_keep_screen(True))
+        self.assertTrue(app_settings.keep_screen())
+        app_settings.save_last_dashboard("custom/audi")
+        self.assertEqual("custom/audi", app_settings.last_dashboard())
+        app_settings.save_last_dashboard("../bad")
+        self.assertEqual("custom/audi", app_settings.last_dashboard())
+
     def test_pick_7(self):
         monitors = [
             {"width": 2560, "height": 1440, "primary": True, "x": 0, "y": 0},

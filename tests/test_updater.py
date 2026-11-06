@@ -37,6 +37,7 @@ class UpdaterTest(unittest.TestCase):
         })
         result = updater.prepare_zip(data, "release.zip")
         self.assertEqual("9.9.9", result["version"])
+        self.assertEqual("source", result["kind"])
         staging = Path(result["staging"])
         self.assertTrue((staging / "main.py").is_file())
         self.assertTrue((staging / "core").is_dir())
@@ -52,6 +53,28 @@ class UpdaterTest(unittest.TestCase):
         result = updater.prepare_zip(data)
         self.assertEqual("1.2.3", result["version"])
         self.assertTrue(Path(result["staging"]).name in ("idash", "root"))
+
+    def test_prepare_exe_zip(self):
+        data = make_zip({
+            "idash.exe": "MZ",
+            "_internal/python.dll": "",
+            "VERSION": "2.0.0",
+            "dashboards/x.html": "",
+        })
+        result = updater.prepare_zip(data, "idash-win64.zip")
+        self.assertEqual("exe", result["kind"])
+        self.assertEqual("2.0.0", result["version"])
+        self.assertTrue((Path(result["staging"]) / "idash.exe").is_file())
+
+    def test_prepare_exe_zip_version_in_internal(self):
+        data = make_zip({
+            "idash.exe": "MZ",
+            "_internal/VERSION": "3.0.0",
+            "_internal/dashboards/x.html": "",
+        })
+        result = updater.prepare_zip(data)
+        self.assertEqual("exe", result["kind"])
+        self.assertEqual("3.0.0", result["version"])
 
     def test_rejects_path_traversal(self):
         data = make_zip({

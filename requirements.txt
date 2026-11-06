@@ -1,1 +1,2 @@
-acevo-sdk
+pystray
+Pillow
