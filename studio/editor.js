@@ -119,9 +119,14 @@
     const g = (layout.canvas && layout.canvas.grid) || 16;
     wrap.style.setProperty("--grid", g + "px");
     $("gridLabel").textContent = g;
-    gridEl.classList.toggle("off", !!layout.hideGrid);
+    gridEl.classList.toggle("off", !!layout.hideGrid || layout.kind === "simhub");
   }
   function renderCanvas() {
+    if (layout.kind === "simhub" && window.IDashSimhub) {
+      view = window.IDashSimhub.render(canvas, layout, {});
+      updatePreview(performance.now());
+      return;
+    }
     const C = theme && theme.colors || window.IDashStudio.DEFAULT_THEME.colors;
     view = window.IDashStudio.render(canvas, layout, {
       C, theme: theme || window.IDashStudio.DEFAULT_THEME,
@@ -144,6 +149,7 @@
 
   function renderOverlay() {
     overlay.textContent = "";
+    if (layout.kind === "simhub") return;
     for (const w of layout.widgets || []) {
       if (w.visible === false) continue;
       const box = document.createElement("div");
@@ -331,7 +337,9 @@
     if (!w) {
       const p = document.createElement("p");
       p.className = "empty";
-      p.textContent = "Select a widget on the canvas.";
+      p.textContent = layout.kind === "simhub" ?
+        "SimHub faithful mode: le design d'origine est conservé, les widgets ne sont pas éditables." :
+        "Select a widget on the canvas.";
       propsEl.appendChild(p);
       return;
     }
@@ -476,6 +484,13 @@
 
   function renderLayers() {
     layersEl.textContent = "";
+    if (layout.kind === "simhub") {
+      const p = document.createElement("p");
+      p.className = "empty";
+      p.textContent = "Dashboard SimHub importé en mode fidèle.";
+      layersEl.appendChild(p);
+      return;
+    }
     const list = (layout.widgets || []).slice().reverse();
     list.forEach(w => {
       const d = document.createElement("div");
@@ -522,6 +537,10 @@
   }
 
   function addWidget(type) {
+    if (layout.kind === "simhub") {
+      toast("Mode fidèle SimHub : édition widgets désactivée.", true);
+      return;
+    }
     const d = DEFAULTS[type];
     if (!d) return;
     pushUndo();
@@ -641,15 +660,22 @@
       pv.style.left = "-3000px";
       document.body.appendChild(pv);
       const now = performance.now();
-      const pm = Object.assign({}, demoMedia, {
-        position: 9, at: now, playing: false, stalled: false,
-      });
-      const v = window.IDashStudio.render(pv, layout, {
-        C: theme.colors, theme, icons: window.IDashIcons,
-        mediaAction: demoAction, media: pm, preview: true,
-      });
-      v.update(window.IDashStudio.demoState(4), now, pm);
-      const text = new XMLSerializer().serializeToString(pv);
+      let text;
+      if (layout.kind === "simhub" && window.IDashSimhub) {
+        const v = window.IDashSimhub.render(pv, layout, {});
+        v.update(window.IDashStudio.demoState(4));
+        text = new XMLSerializer().serializeToString(pv);
+      } else {
+        const pm = Object.assign({}, demoMedia, {
+          position: 9, at: now, playing: false, stalled: false,
+        });
+        const v = window.IDashStudio.render(pv, layout, {
+          C: theme.colors, theme, icons: window.IDashIcons,
+          mediaAction: demoAction, media: pm, preview: true,
+        });
+        v.update(window.IDashStudio.demoState(4), now, pm);
+        text = new XMLSerializer().serializeToString(pv);
+      }
       pv.remove();
       return text;
     } catch (e) {
@@ -931,7 +957,7 @@
     renderAll();
     fit();
     await loadActiveTheme();
-    if (!layout.widgets.length) {
+    if (!layout.widgets.length && layout.kind !== "simhub") {
       addWidget("value");
       addWidget("gauge");
     }

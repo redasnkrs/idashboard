@@ -50,6 +50,7 @@ _PROPERTIES = {
     "fuel_litersperlap": ("fpl", "float2", "l"),
     "fuel_lastlapconsumption": ("fpl", "float2", "l"),
     "fuel_remaininglaps": ("laps", "float1", "none"),
+    "fuel_percent": ("fp", "float2", "percent"),
     "tclevel": ("tcl", "int", "none"),
     "abslevel": ("absl", "int", "none"),
     "brakebias": ("bb", "float1", "none"),
@@ -280,6 +281,17 @@ def _formula_field(expression):
             return None
 
     if before and after:
+        found = []
+        seen = set()
+        for candidate in _PROP.finditer(expression):
+            item = _prop_field(candidate.group(1))
+            if item is None or item[0] in seen:
+                continue
+            seen.add(item[0])
+            found.append(item)
+        if len(found) == 1:
+            field, fmt, unit = found[0]
+            return field, fmt, unit, 1.0, 0.0
         return None
     if not before and not after:
         pass
@@ -427,8 +439,15 @@ class _Importer:
                 return self.embedded[candidate]
         stem = lower.rsplit(".", 1)[0]
         for candidate in (lower, stem, lower.rsplit("/", 1)[-1]):
-            if candidate in self.external:
-                return self.external[candidate]
+            if candidate not in self.external:
+                continue
+            data = self.external[candidate]
+            if isinstance(data, (bytes, bytearray)):
+                shown = candidate if "." in candidate else candidate + ".png"
+                ext = Path(shown).suffix or ".png"
+                data = self.asset(Path(shown).stem, ext, bytes(data))
+                self.external[candidate] = data
+            return data
         self.warn("image introuvable: %s" % key)
         return ""
 

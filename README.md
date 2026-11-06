@@ -110,10 +110,13 @@ Ouvre `http://localhost:25555/studio` (bouton **Studio** sur l'accueil).
   média Cider, horloge, shift lights, bande de rapports.
 - Galerie d'icônes intégrée (dont les icônes maison) + **upload SVG/PNG**.
 - Couleurs par rôles du thème ou hex, champ/format/unité par widget.
-- **Import SimHub** (`.simhubdash`, `.zip`, `.djson`) : widgets SimHub
-  aplatis, images copiées dans `custom/imports/`, rotation/police/échelle et
-  rapport des éléments ignorés. Le `.djson` seul fonctionne, mais l’archive
-  complète est préférable pour les composants et les images.
+- **Import SimHub fidèle** (`.simhubdash`, `.zip`, `.djson`) : conserve le
+  design d’origine (dégradés, jauges, aiguilles, textes, images) et branche la
+  télémétrie dessus. Le dashboard importé est en lecture seule dans le Studio.
+  Les images sont copiées dans `custom/imports/`. Le `.djson` seul fonctionne,
+  mais l’archive complète est préférable pour les composants et les images.
+  Le mode conversion en widgets reste disponible via l’API avec
+  `"mode": "widgets"`.
 - Sauvegarde, duplication, suppression, import/export JSON, aperçu généré,
   thème de prévisualisation et bouton « Launch on 7" ».
 - Un compteur perso apparaît automatiquement dans l'accueil, les réglages,

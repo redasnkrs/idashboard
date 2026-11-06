@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
 from core import (app_settings, catalog, game, launcher, media, pump,
-                  screens, simhub, studio, themes, updater)
+                  screens, simhub, simhub_faithful, studio, themes, updater)
 from core.config import (DEFAULT_DASHBOARD, HOME_FILE, PORT, SETTINGS_FILE,
                          STREAM_HZ, STUDIO_DIR, UPDATE_FILE, VERSION,
                          dashboard_asset, dashboard_file, dashboard_manifest,
@@ -301,8 +301,8 @@ class Handler(BaseHTTPRequestHandler):
         self._send(html.encode("utf-8"), "text/html; charset=utf-8")
 
     def _studio_asset(self, name):
-        allowed = {"index.html", "runtime.html", "runtime.js", "editor.js",
-                   "editor.css", "icons.js"}
+        allowed = {"index.html", "runtime.html", "runtime.js",
+                   "simhub-runtime.js", "editor.js", "editor.css", "icons.js"}
         name = unquote(name)
         if name not in allowed:
             self.send_error(404)
@@ -358,7 +358,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         meta = {key: item.get(key) for key in (
             "spec", "id", "name", "category", "category_label", "game",
-            "game_id", "schema", "schema_version", "size")}
+            "game_id", "schema", "schema_version", "size", "kind")}
         meta["custom"] = True
         snippet = "<script>window.__IDASH__=%s;</script>%s" % (
             json.dumps(meta, ensure_ascii=False).replace("</", "<\\/"),
@@ -402,7 +402,10 @@ class Handler(BaseHTTPRequestHandler):
     def _import_simhub(self):
         try:
             payload = self._read_json()
-            layout, report = simhub.import_dashboard(
+            importer = simhub.import_dashboard
+            if payload.get("mode") != "widgets":
+                importer = simhub_faithful.import_faithful
+            layout, report = importer(
                 payload.get("data"), payload.get("name") or "dashboard.simhubdash")
         except (ValueError, KeyError, TypeError, AttributeError) as exc:
             self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),

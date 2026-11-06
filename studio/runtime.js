@@ -832,13 +832,19 @@
     }
     const layout = data.layout;
     const meta = data.meta || META;
+    const faithful = layout.kind === "simhub" && window.IDashSimhub;
     document.title = (layout.name || "Dashboard") + " — idash";
     let theme = JSON.parse(JSON.stringify(DEFAULT_THEME));
     let C = theme.colors;
     let mediaMgr = createMedia(demo);
-    const needsMedia = (layout.widgets || []).some(w => w.type === "media");
+    const needsMedia = !faithful &&
+      (layout.widgets || []).some(w => w.type === "media");
     let view = null;
     function build() {
+      if (faithful) {
+        view = window.IDashSimhub.render(svg, layout, {});
+        return;
+      }
       view = render(svg, layout, { C, theme,
         icons: window.IDashIcons || null,
         mediaAction: a => mediaMgr.action(a),

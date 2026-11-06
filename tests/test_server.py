@@ -405,13 +405,19 @@ class ServerTest(unittest.TestCase):
         }
         data = base64.b64encode(json.dumps(doc).encode()).decode()
         status, body = self.post("/api/simhub/import", {
-            "name": "test.djson", "data": data})
+            "name": "test.djson", "data": data, "mode": "widgets"})
         self.assertEqual(200, status)
         payload = json.loads(body)
         self.assertTrue(payload["ok"])
         self.assertEqual(1, len(payload["layout"]["widgets"]))
         self.assertEqual("v", payload["layout"]["widgets"][0]["field"])
         self.assertEqual("Dashboard", payload["report"]["screen"])
+        status, body = self.post("/api/simhub/import", {
+            "name": "test.djson", "data": data})
+        self.assertEqual(200, status)
+        payload = json.loads(body)
+        self.assertEqual("simhub", payload["layout"]["kind"])
+        self.assertEqual(1, len(payload["layout"]["simhub"]["items"]))
         status, body = self.post("/api/simhub/import", {"data": "bad"})
         self.assertEqual(400, status)
         self.assertFalse(json.loads(body)["ok"])

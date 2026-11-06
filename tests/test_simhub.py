@@ -6,7 +6,7 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from core import simhub, studio
+from core import simhub, simhub_faithful, studio
 
 
 PNG = base64.b64encode(
@@ -149,6 +149,26 @@ class SimHubImportTest(unittest.TestCase):
         self.assertIsNone(simhub._formula_field(
             "if([DataCorePlugin.Computed.Fuel_RemainingLaps]<2,"
             "[DataCorePlugin.GameData.NewData.Fuel],0)"))
+
+    def test_faithful_import_preserves_tree_and_bindings(self):
+        data = archive({
+            "Test SimHub/Test SimHub.djson": self.dashboard(),
+            "Test SimHub/child.djson": self.child(),
+        })
+        layout, report = simhub_faithful.import_faithful(
+            data, "Test SimHub.zip")
+        self.assertEqual("simhub", layout["kind"])
+        self.assertEqual("Test SimHub", layout["name"])
+        self.assertEqual([], layout["widgets"])
+        self.assertIn("simhub", layout)
+        items = layout["simhub"]["items"]
+        self.assertEqual(4, len(items))
+        speed = next(i for i in items if i["name"] == "Speed")
+        self.assertEqual("v", speed["bind"]["field"])
+        logo = next(i for i in items if i["name"] == "Logo")
+        self.assertRegex(logo["src"], r"^/custom/imports/")
+        self.assertFalse(any(i["name"] == "Ignition" for i in items))
+        self.assertEqual("Dashboard", report["screen"])
 
     def test_speed_unit_visibility_keeps_kmh(self):
         kmh = item("TextItem", "KMH", Left=0, Top=0, Width=80, Height=40,

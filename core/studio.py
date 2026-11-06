@@ -281,6 +281,20 @@ def validate_layout(payload, existing=None):
     grid = int(_num(canvas.get("grid"), 16, 4, 64))
     background = _color(payload.get("background") or canvas.get("background"),
                         "ink")
+    kind = payload.get("kind") if payload.get("kind") in ("widgets", "simhub") \
+        else "widgets"
+    simhub_data = None
+    if kind == "simhub":
+        raw_simhub = payload.get("simhub")
+        if not isinstance(raw_simhub, dict):
+            raise ValueError("donnees SimHub manquantes")
+        try:
+            size = len(json.dumps(raw_simhub, ensure_ascii=False))
+        except (TypeError, ValueError):
+            raise ValueError("donnees SimHub invalides")
+        if size > 8 * 1024 * 1024:
+            raise ValueError("donnees SimHub trop volumineuses")
+        simhub_data = raw_simhub
     raw_widgets = payload.get("widgets")
     if not isinstance(raw_widgets, list):
         raw_widgets = []
@@ -305,8 +319,9 @@ def validate_layout(payload, existing=None):
         layout_id = ""
     tags = payload.get("tags") if isinstance(payload.get("tags"), list) else []
     tags = [t[:24] for t in tags if isinstance(t, str)][:12]
-    return {
+    layout = {
         "version": LAYOUT_VERSION,
+        "kind": kind,
         "id": layout_id,
         "name": name,
         "description": _text(payload.get("description"), "", 300),
@@ -322,6 +337,9 @@ def validate_layout(payload, existing=None):
         "created": payload.get("created") or now,
         "updated": now,
     }
+    if simhub_data is not None:
+        layout["simhub"] = simhub_data
+    return layout
 
 
 def _atomic_write(path, text):
@@ -440,6 +458,7 @@ def catalog_entry(layout):
         "order": int(layout.get("order") or 10),
         "tags": layout.get("tags") or [],
         "custom": True,
+        "kind": layout.get("kind") or "widgets",
     }
 
 
