@@ -32,6 +32,8 @@ themes/*.tmp
 # Chemin du jeu (réglage local)
 game.json
 game.tmp
+app.json
+app.tmp
 
 # Studio : dashboards et icônes personnalisés
 custom/

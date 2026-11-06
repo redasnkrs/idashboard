@@ -1,8 +1,7 @@
 import sys
 import unittest
 
-from core import launcher
-from core.config import SCREEN
+from core import app_settings, launcher
 
 
 class LauncherTest(unittest.TestCase):
@@ -21,10 +20,11 @@ class LauncherTest(unittest.TestCase):
         self.assertIn("--start-fullscreen", joined)
         self.assertIn("course/acevo-cluster", joined)
         if sys.platform == "win32":
-            self.assertIn("--window-position=%d,%d" % (SCREEN["x"],
-                                                       SCREEN["y"]), joined)
-            self.assertIn("--window-size=%d,%d" % (SCREEN["width"],
-                                                   SCREEN["height"]), joined)
+            screen = app_settings.screen()
+            self.assertIn("--window-position=%d,%d" % (screen["x"],
+                                                       screen["y"]), joined)
+            self.assertIn("--window-size=%d,%d" % (screen["width"],
+                                                   screen["height"]), joined)
 
 
 if __name__ == "__main__":

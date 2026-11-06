@@ -59,6 +59,21 @@ feux/clignotants ni la température d'eau dans sa shared memory : ces champs
 restent vides ou fixes (le reste — vitesse, rpm, rapport, carburant, temps,
 position — fonctionne).
 
+## Réglages
+
+`/settings` est maintenant une vraie page à onglets :
+
+- **Écran** : détection automatique des écrans Windows (le 1024×600 est
+  proposé en priorité), sélection de l'écran du 7" et test de lancement.
+- **Jeux** : chemins AC Evo, AC 2014 et AMS2, détection Steam, enregistrement
+  et lancement de chaque jeu.
+- **Apparence** : thème, portée (global/jeu/voiture/compteur), couleurs,
+  unités et blocs, avec un aperçu compact.
+- **Compteurs** : compteur par défaut (utilisé par `/dashboard` et l'accueil).
+- **Système** : version, source de télémétrie active, mise à jour.
+
+Les chemins de jeux et l'écran sont dans `app.json` (ignoré par git).
+
 ## Lancer Assetto Corsa Evo
 
 Depuis l'accueil (bouton « Lancer AC Evo ») ou la section « Jeu » de
@@ -159,9 +174,10 @@ release GitHub.
 | `/api/themes/stream` | SSE : numéro de révision du thème |
 | `/api/themes/reset` | réinitialise une portée (POST) |
 | `/api/launch` | ouvre un compteur sur le mini écran (POST) |
-| `/api/game` | état du lancement + chemin du jeu (GET), enregistrement (POST) |
-| `/api/game/detect` | détecte l'installation Steam d'AC Evo (POST) |
-| `/api/game/launch` | lance Assetto Corsa Evo (POST) |
+| `/api/game` | état AC Evo (compatibilité) ; `/api/game/detect`, `/api/game/launch` |
+| `/api/games` | état des trois jeux (GET) ; `/api/games/<jeu>` (POST), `/detect`, `/launch` |
+| `/api/screens` | écrans détectés + écran courant (GET/POST) |
+| `/api/app` | version + compteur par défaut (GET/POST) |
 | `/api/media` | média Windows en cours (Cider prioritaire) |
 | `/api/media/art` | pochette en cache |
 | `/api/media/control` | précédent / lecture-pause / suivant (POST) |
@@ -187,6 +203,8 @@ core/          schema.py (contrat), config.py, pump.py (lecture), server.py,
                nav_snippet.py (balayage tactile), game.py (lancement AC Evo),
                media.py + media_smtc.ps1 (média Windows / Cider),
                studio.py (layouts + icônes personnalisés),
+               screens.py (détection des écrans),
+               app_settings.py (écran, jeux, compteur par défaut),
                updater.py (ZIP de release + redémarrage)
 update/        index.html (page de mise à jour)
 tools/         build_release.py (ZIP), apply_update.py (application + relance)

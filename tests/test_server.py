@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 from adapters.fake import FakeSource
-from core import game, media, pump, studio, themes, updater
+from core import app_settings, game, media, pump, studio, themes, updater
 from core.schema import validate
 from core.server import serve
 
@@ -18,8 +18,10 @@ class ServerTest(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory()
         cls.old_state = themes.STATE_FILE
         themes.STATE_FILE = Path(cls.tmp.name) / "active.json"
-        cls.old_game = game.GAME_FILE
-        game.GAME_FILE = Path(cls.tmp.name) / "game.json"
+        cls.old_app = app_settings.APP_FILE
+        cls.old_legacy = app_settings.LEGACY_GAME_FILE
+        app_settings.APP_FILE = Path(cls.tmp.name) / "app.json"
+        app_settings.LEGACY_GAME_FILE = Path(cls.tmp.name) / "game.json"
         cls.old_updater = updater.UPDATE_DIR
         updater.UPDATE_DIR = Path(cls.tmp.name) / ".update"
         cls.old_studio = (studio.LAYOUTS_DIR, studio.PREVIEWS_DIR,
@@ -39,7 +41,8 @@ class ServerTest(unittest.TestCase):
         cls.server.shutdown()
         cls.server.server_close()
         themes.STATE_FILE = cls.old_state
-        game.GAME_FILE = cls.old_game
+        app_settings.APP_FILE = cls.old_app
+        app_settings.LEGACY_GAME_FILE = cls.old_legacy
         (studio.LAYOUTS_DIR, studio.PREVIEWS_DIR,
          studio.ICONS_DIR) = cls.old_studio
         updater.UPDATE_DIR = cls.old_updater
@@ -135,6 +138,63 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(game.DEFAULT_APP_ID, info["app_id"])
         self.assertIn("exe_exists", info)
         self.assertIn("detected", info)
+
+    def test_screens_api(self):
+        status, _, body = self.get("/api/screens")
+        self.assertEqual(200, status)
+        info = json.loads(body)
+        self.assertIn("screens", info)
+        self.assertIn("current", info)
+        self.assertIn("width", info["current"])
+
+    def test_screens_save(self):
+        screen = {"x": 100, "y": 200, "width": 1024, "height": 600,
+                  "device": "TEST"}
+        status, body = self.post("/api/screens", {"screen": screen})
+        self.assertEqual(200, status)
+        self.assertTrue(json.loads(body)["ok"])
+        _, _, raw = self.get("/api/screens")
+        current = json.loads(raw)["current"]
+        self.assertEqual(1024, current["width"])
+        self.assertEqual("TEST", current["device"])
+
+    def test_games_api(self):
+        status, _, body = self.get("/api/games")
+        self.assertEqual(200, status)
+        keys = {item["key"] for item in json.loads(body)["games"]}
+        self.assertEqual({"acevo", "ac", "ams2"}, keys)
+
+    def test_games_save_and_detect(self):
+        status, body = self.post("/api/games/ac", {"exe": "/tmp/acs.exe"})
+        self.assertEqual(200, status)
+        self.assertEqual("/tmp/acs.exe", json.loads(body)["game"]["exe"])
+        old = game.detect_game
+        game.detect_game = lambda key: "/tmp/ams2.exe"
+        try:
+            status, body = self.post("/api/games/ams2/detect", {})
+        finally:
+            game.detect_game = old
+        self.assertEqual(200, status)
+        self.assertTrue(json.loads(body)["ok"])
+        self.assertEqual("/tmp/ams2.exe", json.loads(body)["exe"])
+
+    def test_app_default_dashboard(self):
+        try:
+            status, body = self.post(
+                "/api/app", {"default_dashboard": "course/acevo-minimal"})
+            self.assertEqual(200, status)
+            self.assertTrue(json.loads(body)["ok"])
+            conn = http.client.HTTPConnection("127.0.0.1", self.port,
+                                              timeout=5)
+            conn.request("GET", "/dashboard")
+            resp = conn.getresponse()
+            resp.read()
+            self.assertEqual("/dashboard/course/acevo-minimal",
+                             resp.getheader("Location"))
+            conn.close()
+        finally:
+            self.post("/api/app",
+                      {"default_dashboard": "course/acevo-cluster"})
 
     def test_game_settings_roundtrip(self):
         status, body = self.post("/api/game", {"exe": "/tmp/assetto-test.exe"})
@@ -462,7 +522,8 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(200, status)
         self.assertIn("text/html", ctype)
         self.assertIn(b"R\xc3\xa9glages", body)
-        self.assertIn(b"Chemin d'Assetto Corsa Evo", body)
+        self.assertIn("Écran du 7".encode(), body)
+        self.assertIn(b"Jeux", body)
 
 
 if __name__ == "__main__":

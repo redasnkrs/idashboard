@@ -41,6 +41,8 @@ Structure après la Phase 2 et le début de la Phase 3 :
 | `core/game.py` | Lancement d'AC Evo : chemin `game.json`, détection Steam, repli protocole Steam. |
 | `core/media.py` + `core/media_smtc.ps1` | Média Windows (SMTC) : Cider prioritaire, pochette, timeline, contrôles. |
 | `core/studio.py` | Stockage/validation des layouts et icônes personnalisés (`custom/`). |
+| `core/screens.py` | Détection des écrans Windows (choix du 7"). |
+| `core/app_settings.py` | Écran, chemins des jeux, compteur par défaut (`app.json`). |
 | `core/updater.py` | Mise à jour par ZIP de release, staging, validation et relance. |
 | `studio/` | Éditeur `/studio`, runtime par widgets, bibliothèque d'icônes. |
 | `update/index.html` | Page `/update` (ZIP de release + redémarrage). |
@@ -107,6 +109,9 @@ est utilisé sur le PC.
 | `/api/layouts` | `GET` liste / `POST` création-mise à jour des layouts. |
 | `/api/layouts/<id>` | `GET` layout complet / `DELETE` suppression. |
 | `/api/icons` | `GET`/`POST` icônes perso. |
+| `/api/screens` | `GET` écrans détectés + courant ; `POST` enregistrement. |
+| `/api/games` | `GET` état des trois jeux ; `/api/games/<jeu>` (POST), `/detect`, `/launch`. |
+| `/api/app` | `GET` version + compteur par défaut ; `POST` compteur par défaut. |
 | `/update` | Page de mise à jour par ZIP de release GitHub. |
 | `/api/update/info` | Version installée + URL des releases. |
 | `/api/update/install` | `POST` : installe un ZIP et redémarre l'app. |
@@ -137,6 +142,7 @@ est utilisé sur le PC.
 - **Lancement du jeu** : `core/game.py` + routes `/api/game`, `/api/game/detect`, `/api/game/launch`. Le chemin de l'exe est dans `game.json` (hors git) ; détection via le registre Steam et `libraryfolders.vdf` ; si vide, lancement par `steam://rungameid/3058630`. Bouton « Lancer AC Evo » sur l'accueil et section « Jeu » dans `/settings` (chemin, détecter, enregistrer, lancer).
 - **Compteur Cockpit** (`dashboards/course/acevo-cockpit/`) : 3 colonnes, labels anglais. Gauche : track map stylisée (tracé générique pour l'instant ; vraie forme prévue en V2) avec point réel (`npos`), circuit/config, position, lap/best/last/delta. Centre : anneau de régime, vitesse, rapport + bande R/N/1…8, mode, temps au tour, shift lights, badge position. Droite : média Cider via SMTC (pochette, titre, artiste, album, progression, boutons tactiles), date/heure, temp extérieure, énergie et moteur. Veille/réveil contact et swipe automatiques.
 - **Média Windows** : `core/media.py` démarre un poller PowerShell (`media_smtc.ps1`, WinRT) ; Cider prioritaire, sinon session courante. Routes `/api/media`, `/api/media/art`, `/api/media/control` (playpause / next / prev). Si la timeline manque, la barre est masquée. Sur Mac, le compteur utilise un média de démo.
+- **Réglages** : page à onglets Écran (détection automatique sans écran 1024×600 / choix), Jeux (chemins et lancement AC Evo, AC 2014, AMS2), Apparence (thème avec aperçu compact), Compteurs (compteur par défaut) et Système (version/source/mise à jour). L'écran et les jeux sont dans `app.json` (hors git).
 - **Studio** : `/studio` (éditeur) + `/dashboard/custom/<id>` (runtime). Layouts JSON dans `custom/layouts/`, aperçus SVG dans `custom/previews/`, icônes uploadées dans `custom/icons/` (tout hors git). Canvas 1024×600 avec grille, drag/resize, propriétés par widget, galerie d'icônes (maison + Lucide ISC + uploads), thème de prévisualisation, import/export, sauvegarde/duplication/suppression, aperçu SVG généré et lancement sur le 7". Les compteurs perso apparaissent automatiquement dans l'accueil, les réglages, le swipe et le lanceur. Runtime commun `studio/runtime.js` : thème/unités, SSE, veille/réveil contact, média Cider, track map (`npos`).
 - **Portée thème compteur** : en plus de global / jeu / voiture, `dashboards` s'applique à un `spec` précis. Résolution : **compteur > voiture > jeu > global**. La page de réglages permet de choisir la portée « Compteur » et de réinitialiser la portée courante.
 - **Compteur minimal** (`dashboards/course/acevo-minimal/`) : vitesse, rapport, barre de régime, 27 shift lights, voyants (icônes feux / route / frein, texte PIT) et aides (TC/ABS avec leur niveau). Même contrat de données, même thème, mêmes unités, blocs `telltales` / `aids` / `shiftlights`. Il gère aussi la veille grise et le réveil (barre de régime + LEDs + voyants) via `?demo&ign=off` / `?demo&ign=wake`.
@@ -190,7 +196,7 @@ Le format `/api/ets2/telemetry` est un second format, indépendant, calqué sur 
 - Phase 1 : les 16 tests passent (`python -m unittest discover -s tests -v`) et les captures Playwright 1024x600 / 1024x560 montrent le même design qu'avant.
 - `core/schema.py` valide la sortie de `adapters/fake.py` et l'état déconnecté `{"c": false}`.
 - Phase 2 : 27 tests passent. Captures Playwright des 3 thèmes à 1024x600 et 1024x560. Une couleur changée dans `/settings` est enregistrée et appliquée dans l'aperçu sans rechargement (vérifié via Playwright, aucune erreur JS). Unités mph/°F et masquage de blocs vérifiés.
-- Phase 3/4 (partiel) : 80 tests passent (catalogue, accueil, injection `__IDASH__`, assets, redirection `/dashboard`, reset de portée, rejet d'un compteur inconnu, lanceur, réglages et lancement du jeu, API média). Captures Playwright des 3 thèmes pour les 3 compteurs, de l'accueil et des réglages, plus les états `ign=off` (veille grise) et `ign=wake` (test des voyants + balayage) ; aucune erreur JS. Le Studio et un compteur perso sont aussi capturés (éditeur + runtime + aperçu généré). Le balayage tactile gauche/droite est vérifié via Playwright (cluster ↔ minimal). Les `preview.png` sont générés depuis les pages réelles. Lancement Chrome/Steam réel, média Cider, édition Studio, offsets réels AC 2014 / AMS2 et installation réelle d'un ZIP de mise à jour **à confirmer sur le PC**. La page `/update` et la validation des ZIP sont testées ; le redémarrage Windows est à valider en conditions réelles.
+- Phase 3/4 (partiel) : 91 tests passent (catalogue, accueil, injection `__IDASH__`, assets, redirection `/dashboard`, reset de portée, rejet d'un compteur inconnu, lanceur, réglages et lancement du jeu, API média). Captures Playwright des 3 thèmes pour les 3 compteurs, de l'accueil et des réglages, plus les états `ign=off` (veille grise) et `ign=wake` (test des voyants + balayage) ; aucune erreur JS. Le Studio et un compteur perso sont aussi capturés (éditeur + runtime + aperçu généré). Le balayage tactile gauche/droite est vérifié via Playwright (cluster ↔ minimal). Les `preview.png` sont générés depuis les pages réelles. Lancement Chrome/Steam réel, média Cider, édition Studio, offsets réels AC 2014 / AMS2, détection réelle des écrans Windows et installation réelle d'un ZIP de mise à jour **à confirmer sur le PC**. La page `/update` et la validation des ZIP sont testées ; le redémarrage Windows est à valider en conditions réelles.
 - Cockpit : les 3 thèmes, la track map (`npos`), la veille/réveil et le média de démo sont vérifiés sur Mac. Le vrai SMTC (pochette Cider, timeline, contrôles) n'est pas testable sur Mac ; à valider sur le PC.
 - Contact : la veille et le réveil sont vérifiés en démo Playwright sur les deux compteurs. La valeur réelle `ign` (`is_ignition_on`) reste **à confirmer sur le PC** avec `python main.py --debug`.
 
@@ -247,7 +253,7 @@ Chaque phase est utilisable seule. Ne commencer la suivante que si la précéden
 - [x] **Catalogue automatique** (`core/catalog.py`) alimenté par `/api/dashboards`, filtres par catégorie sur l'accueil
 - [x] Bouton « Lancer sur le 7" » (Chrome `--app`, profil dédié, coordonnées de l'écran) + aperçu et options par compteur
 - [x] Bouton « Lancer le jeu » (AC Evo) : chemin exe configurable, détection Steam, repli `steam://rungameid/3058630`, depuis l'accueil et les réglages
-- [ ] Détection automatique du mini écran (par résolution 1024x600, ou choix dans les réglages) : aujourd'hui les coordonnées sont dans `config.SCREEN` / variables d'environnement
+- [x] Détection automatique du mini écran (par résolution 1024x600, choix dans `/settings#screen`) : `core/screens.py` + `app.json`
 - [ ] Mémorisation du dernier compteur choisi par jeu
 - [ ] Icône dans la barre des tâches, démarrage automatique avec Windows
 - [ ] Lancement automatique quand le jeu démarre (nom du processus d'AC Evo **à vérifier** sur le PC)
@@ -295,8 +301,9 @@ idashboard/
   core/          schema.py (contrat), config.py, pump.py, server.py,
                  themes.py (palettes, résolution, diffusion), catalog.py,
                  launcher.py (Chrome --app sur le 7"), nav_snippet.py,
-                 game.py (lancement AC Evo), media.py + media_smtc.ps1,
-                 studio.py (layouts/icônes perso)
+                 game.py (lancement AC Evo/AC/AMS2), media.py + media_smtc.ps1,
+                 studio.py (layouts/icônes perso), screens.py,
+                 app_settings.py (écran, jeux, compteur par défaut)
   game.json      chemin du jeu (hors git)
   adapters/      base.py, fake.py, auto.py, acevo.py,
                  ac.py + ac_defs.py, ams2.py + ams2_defs.py
@@ -305,7 +312,7 @@ idashboard/
                  course/acevo-cockpit/  idem (track map + média)
                  aviation/…  (plus tard : un dossier par catégorie, un sous-dossier par compteur)
   home/          index.html (accueil / catalogue)
-  settings/      index.html (réglages + aperçu live)
+  settings/      index.html (réglages à onglets : écran, jeux, apparence, compteurs, système)
   themes/        ambre-ivoire.json, rouge-sport.json, vert.json
                  active.json (choix utilisateur, hors git)
   studio/        index.html + editor.js/css, runtime.js, icons.js
@@ -317,7 +324,8 @@ idashboard/
   custom/        layouts/, previews/, icons/ (données utilisateur, hors git)
   tests/         test_schema.py, test_server.py, test_themes.py, test_game.py,
                  test_media.py, test_studio.py, test_launcher.py,
-                 test_sources.py, test_updater.py, visual_check.py
+                 test_sources.py, test_app_settings.py, test_updater.py,
+                 visual_check.py
   main.py        point d'entrée
   acevo_bridge.py  compatibilité (ancien nom)
   lancer.bat

@@ -15,7 +15,8 @@ import threading
 import webbrowser
 from pathlib import Path
 
-from core.config import PORT, ROOT, SCREEN
+from core import app_settings
+from core.config import PORT, ROOT
 
 PROFILE_DIR = ROOT / ".profile-7"
 
@@ -82,9 +83,10 @@ def _command(url):
     # on ne les applique que si l'utilisateur les a fournies explicitement.
     place = sys.platform == "win32" or "IDASH_SCREEN_X" in os.environ
     if place:
-        args.insert(3, "--window-position=%d,%d" % (SCREEN["x"], SCREEN["y"]))
-        args.insert(4, "--window-size=%d,%d" % (SCREEN["width"],
-                                                SCREEN["height"]))
+        screen = app_settings.screen()
+        args.insert(3, "--window-position=%d,%d" % (screen["x"], screen["y"]))
+        args.insert(4, "--window-size=%d,%d" % (screen["width"],
+                                                screen["height"]))
     return args
 
 

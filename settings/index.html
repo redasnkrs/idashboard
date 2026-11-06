@@ -3,149 +3,312 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Réglages du tableau de bord</title>
+<title>idash · Réglages</title>
 <style>
   :root {
-    --bg: #101014;
-    --panel: #17171d;
-    --line: #2b2b36;
-    --text: #e8e8ee;
-    --muted: #9a9aab;
-    --accent: #ff9a2e;
-    --ok: #3ddc84;
+    --bg: #080706; --panel: #12100c; --panel2: #181510; --line: #2b261d;
+    --text: #ece6d6; --muted: #8a8272; --amber: #ff9a2e; --red: #ff3b2a;
+    --green: #3ddc84; --font: "Bahnschrift", "DIN Alternate", "Segoe UI", system-ui, sans-serif;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; }
+  html, body { margin: 0; min-height: 100%; }
   body {
-    display: flex; background: var(--bg); color: var(--text);
-    font: 14px/1.45 "Bahnschrift", "Segoe UI", system-ui, sans-serif;
+    background: radial-gradient(1100px 600px at 40% -20%, #1b1710, var(--bg) 60%);
+    color: var(--text); font-family: var(--font); padding-bottom: 44px;
   }
-  aside {
-    width: 430px; min-width: 430px; height: 100vh; overflow-y: auto;
-    padding: 20px 22px 40px; background: var(--panel);
-    border-right: 1px solid var(--line);
+  a { color: inherit; text-decoration: none; }
+  button, input, select, textarea { font: inherit; }
+  .top {
+    min-height: 60px; display: flex; align-items: center; gap: 14px;
+    padding: 10px clamp(16px, 4vw, 48px); border-bottom: 1px solid var(--line);
+    background: rgba(8, 7, 6, .96); position: sticky; top: 0; z-index: 10;
+    flex-wrap: wrap;
   }
-  h1 { font-size: 18px; margin: 0 0 2px; }
-  .sub { color: var(--muted); font-size: 12px; margin-bottom: 18px; }
-  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
-       color: var(--muted); margin: 22px 0 10px; }
-  label.field { display: block; margin-bottom: 12px; }
-  label.field span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-  select, input[type=text] {
-    width: 100%; padding: 8px 10px; border-radius: 6px;
-    border: 1px solid var(--line); background: #0d0d11; color: var(--text);
-    font: inherit;
+  .brand { font-size: 22px; font-weight: 700; letter-spacing: .04em; }
+  .brand span { color: var(--amber); }
+  .sub { color: var(--muted); font-size: 14px; }
+  .tabs { display: flex; gap: 5px; flex-wrap: wrap; }
+  .tabs button {
+    background: transparent; border: 1px solid transparent; color: var(--muted);
+    border-radius: 7px; padding: 8px 12px; cursor: pointer;
   }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
-  .color {
-    display: flex; align-items: center; gap: 8px;
-    padding: 3px 0; font-size: 12px; color: var(--muted);
+  .tabs button:hover { color: var(--text); }
+  .tabs button.on { color: var(--amber); border-color: var(--line);
+                    background: var(--panel); }
+  .grow { flex: 1; }
+  .link { color: var(--text); border: 1px solid var(--line); border-radius: 99px;
+          padding: 8px 13px; font-size: 13px; background: var(--panel); }
+  .link:hover { border-color: var(--amber); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 48px); }
+  .panel { display: none; }
+  .panel.on { display: block; }
+  h1 { font-size: 28px; margin: 0 0 6px; }
+  .hint { color: var(--muted); font-size: 13px; line-height: 1.5; }
+  .card { background: var(--panel); border: 1px solid var(--line);
+          border-radius: 14px; padding: 18px; margin-top: 16px; }
+  .row-between { display: flex; align-items: center; justify-content: space-between;
+                 gap: 14px; flex-wrap: wrap; }
+  .big { font-size: 20px; font-weight: 700; margin-top: 3px; }
+  .label { color: var(--muted); font-size: 11px; text-transform: uppercase;
+           letter-spacing: .1em; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+             margin-top: 12px; }
+  button {
+    border-radius: 7px; border: 1px solid var(--line); background: var(--panel2);
+    color: var(--text); padding: 8px 12px; cursor: pointer;
   }
-  .color input { width: 30px; height: 24px; padding: 0; border: 1px solid var(--line);
+  button:hover { border-color: #4a4030; }
+  button.primary { background: var(--amber); color: #17130d;
+                   border-color: var(--amber); font-weight: 700; }
+  button.ghost { background: transparent; }
+  button.danger { color: #ff9b93; }
+  .status { color: var(--muted); font-size: 12px; min-height: 16px; }
+  .status.ok { color: var(--green); }
+  .status.err { color: #ff5a5a; }
+  .monitors { display: grid; gap: 8px; margin-top: 12px; }
+  .monitor {
+    border: 1px solid var(--line); border-radius: 9px; padding: 11px 13px;
+    cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; background: #0d0b08;
+  }
+  .monitor:hover { border-color: #4a4030; }
+  .monitor.sel { border-color: var(--amber); background: #1b150d; }
+  .monitor .name { font-weight: 700; }
+  .monitor .meta { color: var(--muted); font-size: 12px; }
+  .games { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+           gap: 14px; margin-top: 16px; }
+  .game-card { background: var(--panel); border: 1px solid var(--line);
+               border-radius: 14px; padding: 16px; display: flex;
+               flex-direction: column; gap: 8px; }
+  .game-card h2 { font-size: 18px; margin: 0; }
+  .game-card .appid { color: var(--muted); font-size: 11px; }
+  .game-card input[type=text] { width: 100%; padding: 8px 9px; border-radius: 6px;
+    border: 1px solid var(--line); background: #0d0b08; color: var(--text); }
+  .game-card .actions { margin-top: 4px; }
+  .appearance { display: grid; grid-template-columns: minmax(0, 1fr) 520px;
+                gap: 18px; align-items: start; }
+  .theme-controls .grid { display: grid; grid-template-columns: 1fr 1fr;
+                          gap: 6px 14px; }
+  .field { display: block; margin-bottom: 11px; }
+  .field > span { display: block; font-size: 11px; color: var(--muted);
+                  margin-bottom: 4px; }
+  select, input[type=text], textarea {
+    width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line);
+    background: #0d0d11; color: var(--text);
+  }
+  .color { display: flex; align-items: center; gap: 8px; padding: 2px 0;
+           font-size: 12px; color: var(--muted); }
+  .color input { width: 30px; height: 23px; padding: 0; border: 1px solid var(--line);
                  border-radius: 4px; background: none; cursor: pointer; }
   .color span { flex: 1; color: var(--text); }
   .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; }
   .checks label { display: flex; align-items: center; gap: 7px; font-size: 13px; }
   details { margin-top: 4px; }
   summary { cursor: pointer; color: var(--muted); font-size: 12px; margin: 8px 0; }
-  #status { margin-top: 18px; font-size: 12px; color: var(--ok); min-height: 18px; }
-  #status.err { color: #ff5a5a; }
-  .row { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 4px; }
-  .btn2 { font: inherit; font-size: 12px; cursor: pointer; padding: 7px 11px;
-          color: var(--text); background: transparent; border: 1px solid var(--line);
-          border-radius: 6px; }
-  .btn2:hover { border-color: var(--accent); }
-  .btn2.primary { color: #17130d; background: var(--accent);
-                  border-color: var(--accent); font-weight: 700; }
-  #gameStatus { font-size: 11px; color: var(--muted); min-height: 16px;
-                margin-top: 4px; word-break: break-all; }
-  #gameStatus.ok { color: var(--ok); }
-  #gameStatus.err { color: #ff5a5a; }
-  .reset { font: inherit; font-size: 12px; cursor: pointer; margin-top: 10px;
-           background: transparent; color: var(--muted); border: 1px solid var(--line);
-           border-radius: 6px; padding: 8px 12px; }
-  .reset:hover { color: var(--text); border-color: #ff5a5a; }
-  .back { color: var(--muted); font-size: 12px; text-decoration: none; }
-  .back:hover { color: var(--text); }
-  main {
-    flex: 1; min-width: 0; height: 100vh; display: flex;
-    align-items: center; justify-content: center; background: #000; overflow: hidden;
-  }
-  #stage { position: relative; overflow: hidden; }
+  .preview-card { position: sticky; top: 80px; }
+  .preview-stage { width: 100%; aspect-ratio: 1024 / 600; overflow: hidden;
+                   border-radius: 8px; background: #000; border: 1px solid var(--line);
+                   margin-top: 8px; }
   #preview { width: 1024px; height: 600px; border: 0; transform-origin: top left;
              display: block; background: #000; }
-  .hint { color: var(--muted); font-size: 11px; margin-top: 4px; }
+  .preview-link { color: var(--amber); font-size: 12px; }
+  .kv { display: flex; justify-content: space-between; gap: 20px; padding: 8px 0;
+        border-bottom: 1px solid var(--line); font-size: 14px; }
+  .kv:last-child { border-bottom: 0; }
+  .kv span:first-child { color: var(--muted); }
+  .system-links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .system-links a { border: 1px solid var(--line); border-radius: 7px;
+                    padding: 8px 11px; font-size: 13px; background: var(--panel2); }
+  #toast { position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 12px);
+           background: var(--panel2); border: 1px solid var(--line); color: var(--text);
+           padding: 9px 14px; border-radius: 8px; font-size: 13px; opacity: 0;
+           pointer-events: none; transition: .2s; max-width: 70vw; z-index: 20; }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  #toast.err { border-color: var(--red); color: #ffb3ab; }
+  @media (max-width: 900px) {
+    .appearance { grid-template-columns: 1fr; }
+    .preview-card { position: static; }
+  }
 </style>
 </head>
 <body>
-<aside>
-  <a class="back" href="/">← Tous les compteurs</a>
-  <a class="back" href="/studio">· Studio</a>
-  <a class="back" href="/update">· Mise à jour</a>
-  <h1>Réglages du tableau de bord</h1>
-  <div class="sub">Les changements sont enregistrés et appliqués en direct sur le 7".</div>
+<header class="top">
+  <a class="brand" href="/">idash<span>.</span></a>
+  <span class="sub">Réglages</span>
+  <nav class="tabs" id="tabs">
+    <button data-tab="screen" class="on">Écran</button>
+    <button data-tab="games">Jeux</button>
+    <button data-tab="appearance">Apparence</button>
+    <button data-tab="dashboards">Compteurs</button>
+    <button data-tab="system">Système</button>
+  </nav>
+  <div class="grow"></div>
+  <a class="link" href="/">Accueil</a>
+</header>
 
-  <h2 style="margin-top:4px">Jeu</h2>
-  <label class="field"><span>Chemin d'Assetto Corsa Evo</span>
-    <input type="text" id="gameExe" placeholder="…\Assetto Corsa EVO\AssettoCorsaEVO.exe">
-    <div class="hint">Laisse vide pour lancer via Steam (app 3058630).</div>
-  </label>
-  <div class="row">
-    <button class="btn2" id="gameDetect" type="button">Détecter</button>
-    <button class="btn2" id="gameSave" type="button">Enregistrer</button>
-    <button class="btn2 primary" id="gameLaunch" type="button">Lancer le jeu</button>
-  </div>
-  <div id="gameStatus"></div>
+<div class="wrap">
+  <section class="panel on" id="tab-screen">
+    <h1>Écran du 7"</h1>
+    <p class="hint">L'écran sur lequel le compteur doit s'ouvrir. La détection
+      automatique est disponible sous Windows ; les coordonnées sont en pixels
+      du bureau virtuel.</p>
+    <div class="card">
+      <div class="row-between">
+        <div><div class="label">Écran actuel</div><div id="screenCurrent" class="big">…</div></div>
+        <button id="screenDetect" class="ghost" type="button">Détecter les écrans</button>
+      </div>
+      <div id="screenList" class="monitors"></div>
+      <div class="actions">
+        <button id="screenSave" class="primary" type="button">Utiliser cet écran</button>
+        <button id="screenTest" class="ghost" type="button">Tester sur le 7"</button>
+        <span id="screenStatus" class="status"></span>
+      </div>
+    </div>
+  </section>
 
-  <label class="field"><span>Thème</span><select id="preset"></select></label>
-  <label class="field"><span>Portée</span>
-    <select id="scope">
-      <option value="global">Tous les jeux (global)</option>
-      <option value="game" id="scopeGame">Jeu — Assetto Corsa Evo</option>
-      <option value="car">Voiture</option>
-      <option value="dashboard">Compteur</option>
-    </select>
-  </label>
-  <label class="field" id="keyWrap" style="display:none"><span>Nom de la voiture</span>
-    <input type="text" id="key" placeholder="FERRARI 296 GT3">
-    <div class="hint">Tel qu'affiché par le jeu (majuscules).</div>
-  </label>
-  <label class="field" id="dashWrap" style="display:none"><span>Compteur</span>
-    <select id="dashKey"></select>
-    <div class="hint">S'applique à ce compteur, tous jeux confondus.</div>
-  </label>
+  <section class="panel" id="tab-games">
+    <h1>Jeux</h1>
+    <p class="hint">Chemins utilisés par les boutons « Lancer ». La télémétrie est
+      détectée automatiquement (AC Evo, AC 2014, AMS2) ; ces chemins servent
+      uniquement à démarrer le jeu.</p>
+    <div class="row-between" style="margin-top:10px">
+      <span class="hint" id="sourceInfo"></span>
+    </div>
+    <div id="gamesList" class="games"></div>
+  </section>
 
-  <h2>Couleurs</h2>
-  <div class="grid" id="colors"></div>
+  <section class="panel" id="tab-appearance">
+    <h1>Apparence</h1>
+    <p class="hint">Couleurs, unités et blocs visibles. Les changements sont
+      enregistrés et appliqués en direct.</p>
+    <div class="appearance" style="margin-top:16px">
+      <div class="card theme-controls">
+        <label class="field"><span>Thème</span><select id="preset"></select></label>
+        <label class="field"><span>Portée</span>
+          <select id="scope">
+            <option value="global">Tous les jeux (global)</option>
+            <option value="game" id="scopeGame">Jeu</option>
+            <option value="car">Voiture</option>
+            <option value="dashboard">Compteur</option>
+          </select>
+        </label>
+        <label class="field" id="keyWrap" style="display:none"><span>Nom de la voiture</span>
+          <input type="text" id="key" placeholder="FERRARI 296 GT3">
+          <div class="hint">Tel qu'affiché par le jeu.</div>
+        </label>
+        <label class="field" id="dashWrap" style="display:none"><span>Compteur</span>
+          <select id="dashKey"></select>
+          <div class="hint">S'applique à ce compteur, tous jeux confondus.</div>
+        </label>
 
-  <details>
-    <summary>Couleurs avancées (fond, cadran, aiguille…)</summary>
-    <div class="grid" id="advanced"></div>
-  </details>
+        <h2 class="label" style="margin:18px 0 8px">Couleurs</h2>
+        <div class="grid" id="colors"></div>
+        <details>
+          <summary>Couleurs avancées (fond, cadran, aiguille…)</summary>
+          <div class="grid" id="advanced"></div>
+        </details>
 
-  <h2>Unités</h2>
-  <div class="grid">
-    <label class="field"><span>Vitesse</span>
-      <select id="unitSpeed"><option value="kmh">km/h</option><option value="mph">mph</option></select>
-    </label>
-    <label class="field"><span>Température</span>
-      <select id="unitTemp"><option value="c">°C</option><option value="f">°F</option></select>
-    </label>
-  </div>
+        <h2 class="label" style="margin:18px 0 8px">Unités</h2>
+        <div class="grid">
+          <label class="field"><span>Vitesse</span>
+            <select id="unitSpeed"><option value="kmh">km/h</option><option value="mph">mph</option></select>
+          </label>
+          <label class="field"><span>Température</span>
+            <select id="unitTemp"><option value="c">°C</option><option value="f">°F</option></select>
+          </label>
+        </div>
 
-  <h2>Blocs affichés</h2>
-  <div class="checks" id="blocks"></div>
+        <h2 class="label" style="margin:18px 0 8px">Blocs affichés</h2>
+        <div class="checks" id="blocks"></div>
+        <div class="actions">
+          <button id="reset" class="ghost danger" type="button">Réinitialiser cette portée</button>
+          <span id="status" class="status"></span>
+        </div>
+      </div>
+      <div class="card preview-card">
+        <div class="row-between">
+          <span class="label">Aperçu</span>
+          <a class="preview-link" id="previewOpen" target="_blank" rel="noopener">Ouvrir en grand ↗</a>
+        </div>
+        <div class="preview-stage" id="previewStage">
+          <iframe id="preview" title="Aperçu du compteur"></iframe>
+        </div>
+        <p class="hint" style="margin:8px 0 0">Aperçu avec le thème et la portée sélectionnés.</p>
+      </div>
+    </div>
+  </section>
 
-  <div id="status"></div>
-  <button class="reset" id="reset" type="button">Réinitialiser cette portée</button>
-</aside>
+  <section class="panel" id="tab-dashboards">
+    <h1>Compteurs</h1>
+    <p class="hint">Choisis le compteur ouvert par défaut (bouton /dashboard
+      et accueil). Les compteurs personnalisés se créent dans le Studio.</p>
+    <div class="card" style="max-width:620px">
+      <label class="field"><span>Compteur par défaut</span>
+        <select id="defaultDashboard"></select>
+      </label>
+      <div class="actions">
+        <button id="saveDefault" class="primary" type="button">Enregistrer</button>
+        <span id="defaultStatus" class="status"></span>
+      </div>
+      <p class="hint" style="margin-top:14px">
+        <a class="preview-link" href="/studio">Ouvrir le Studio</a> pour créer ou
+        modifier un compteur.
+      </p>
+    </div>
+  </section>
 
-<main id="main"><div id="stage"><iframe id="preview" title="Aperçu"></iframe></div></main>
+  <section class="panel" id="tab-system">
+    <h1>Système</h1>
+    <div class="card" style="max-width:720px">
+      <div class="kv"><span>Version</span><span id="systemVersion">…</span></div>
+      <div class="kv"><span>Source télémétrie</span><span id="systemSource">…</span></div>
+      <div class="kv"><span>Compteur par défaut</span><span id="systemDefault">…</span></div>
+      <div class="system-links">
+        <a href="/update">Mise à jour</a>
+        <a href="/studio">Studio</a>
+        <a href="/">Accueil</a>
+      </div>
+    </div>
+  </section>
+</div>
 
+<div id="toast"></div>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const MAIN = $('main'), STAGE = $('stage'), PREVIEW = $('preview');
+  const toast = (msg, err) => {
+    const el = $('toast');
+    el.textContent = msg;
+    el.className = 'show' + (err ? ' err' : '');
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => { el.className = ''; }, 3400);
+  };
+  const setStatus = (id, text, cls) => {
+    const el = $(id);
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'status' + (cls ? ' ' + cls : '');
+  };
+
+  /* ---------- navigation ---------- */
+  const tabs = ['screen', 'games', 'appearance', 'dashboards', 'system'];
+  function showTab(name) {
+    if (!tabs.includes(name)) name = 'screen';
+    tabs.forEach(t => {
+      const panel = $('tab-' + t);
+      if (panel) panel.classList.toggle('on', t === name);
+    });
+    document.querySelectorAll('#tabs button').forEach(b => {
+      b.classList.toggle('on', b.dataset.tab === name);
+    });
+    if (name === 'appearance') setTimeout(fitPreview, 30);
+    try { history.replaceState(null, '', '#' + name); } catch (e) {}
+  }
+  document.querySelectorAll('#tabs button').forEach(b => {
+    b.addEventListener('click', () => showTab(b.dataset.tab));
+  });
+
+  /* ---------- thème ---------- */
   const COLOR_LABELS = [
     ['ink', 'Fond'], ['ivory', 'Chiffres'], ['muted', 'Texte secondaire'],
     ['rule', 'Filets'], ['off', 'Jauges éteintes'], ['amber', 'Accent principal'],
@@ -169,11 +332,10 @@
     ['position', 'Position'], ['aids', 'Aides'], ['shiftlights', 'Shift lights'],
   ];
 
-  let info = null;
-  let current = null;
-  let dashboards = [];
-  let GAME_KEY = 'acevo';
+  let info = null, dashboards = [], GAME_KEY = 'acevo';
   let GAME_LABEL = 'Assetto Corsa Evo';
+  let current = null;
+  const blockInputs = [];
 
   function addColor(container, key, label) {
     const row = document.createElement('label');
@@ -189,8 +351,6 @@
   }
   COLOR_LABELS.forEach(([k, l]) => addColor($('colors'), k, l));
   ADVANCED_LABELS.forEach(([k, l]) => addColor($('advanced'), k, l));
-
-  const blockInputs = [];
   BLOCK_LABELS.forEach(([key, label]) => {
     const row = document.createElement('label');
     const input = document.createElement('input');
@@ -216,7 +376,6 @@
       input.checked = theme.blocks[input.dataset.block] !== false;
     });
   }
-
   function scopeKey() {
     const scope = $('scope').value;
     if (scope === 'game') return GAME_KEY;
@@ -224,7 +383,6 @@
     if (scope === 'dashboard') return $('dashKey').value;
     return '';
   }
-
   function collect() {
     const colors = {};
     document.querySelectorAll('#colors input, #advanced input').forEach(input => {
@@ -243,117 +401,34 @@
       },
     };
   }
-
-  function setStatus(text, error) {
-    const el = $('status');
-    el.textContent = text;
-    el.className = error ? 'err' : '';
-  }
-
-  function setGameStatus(text, cls) {
-    const el = $('gameStatus');
-    el.textContent = text;
-    el.className = cls || '';
-  }
-
-  async function saveGame() {
-    const exe = $('gameExe').value.trim();
-    const r = await fetch('/api/game', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ exe }),
-    });
-    const data = await r.json();
-    if (!r.ok || !data.ok) throw new Error(data.error || 'erreur');
-    return data;
-  }
-
-  async function loadGame() {
-    try {
-      const g = await fetch('/api/game', { cache: 'no-store' }).then(r => r.json());
-      $('gameExe').value = g.exe || '';
-      if (g.platform !== 'win32') {
-        if (!g.exe) setGameStatus('Lancement du jeu : Windows uniquement.', '');
-        else if (g.exe_exists) setGameStatus('Chemin enregistré.', 'ok');
-        else setGameStatus('Chemin enregistré, mais fichier introuvable.', 'err');
-      } else if (g.exe_exists) {
-        setGameStatus('Chemin du jeu enregistré.', 'ok');
-      } else if (g.detected) {
-        $('gameExe').value = g.detected;
-        setGameStatus('Jeu détecté automatiquement.', 'ok');
-      } else {
-        setGameStatus('Laisse vide pour lancer via Steam.', '');
-      }
-    } catch (_) {}
-  }
-
-  async function detectGame() {
-    try {
-      setGameStatus('Recherche…', '');
-      const r = await fetch('/api/game/detect', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: '{}',
-      });
-      const data = await r.json();
-      if (!data.ok || !data.exe) {
-        setGameStatus('Jeu introuvable. Renseigne le chemin à la main.', 'err');
-        return;
-      }
-      $('gameExe').value = data.exe;
-      setGameStatus('Jeu détecté : ' + data.exe, 'ok');
-    } catch (e) {
-      setGameStatus('Échec : ' + e.message, 'err');
-    }
-  }
-
-  async function launchGame() {
-    try {
-      setGameStatus('Lancement…', '');
-      await saveGame();
-      const r = await fetch('/api/game/launch', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: '{}',
-      });
-      const data = await r.json();
-      if (!r.ok || !data.ok) throw new Error(data.error || 'échec');
-      setGameStatus(data.method === 'steam' ? 'Lancé via Steam.' : 'Jeu lancé.', 'ok');
-    } catch (e) {
-      setGameStatus('Échec : ' + e.message, 'err');
-    }
-  }
-
   let timer = 0;
   function scheduleSave() {
     clearTimeout(timer);
-    timer = setTimeout(save, 250);
+    timer = setTimeout(saveTheme, 250);
   }
-
-  async function save() {
+  async function saveTheme() {
     const body = collect();
     if (body.scope === 'car' && !body.key) {
-      setStatus('Indique le nom de la voiture.', true);
-      return;
+      setStatus('status', 'Indique le nom de la voiture.', 'err'); return;
     }
     if (body.scope === 'dashboard' && !body.key) {
-      setStatus('Choisis un compteur.', true);
-      return;
+      setStatus('status', 'Choisis un compteur.', 'err'); return;
     }
     try {
       const r = await fetch('/api/themes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
       const result = await r.json();
       if (!r.ok || !result.ok) throw new Error(result.error || 'erreur');
-      setStatus('Enregistré et appliqué.');
+      setStatus('status', 'Enregistré et appliqué.', 'ok');
     } catch (e) {
-      setStatus('Échec : ' + e.message, true);
+      setStatus('status', 'Échec : ' + e.message, 'err');
     }
   }
-
   function previewUrl() {
-    const spec = $('dashKey').value || (dashboards[0] && dashboards[0].spec);
-    if (!spec) return '/dashboard?demo&nogame=1&nodash=1';
+    const spec = $('dashKey').value ||
+      (dashboards[0] && dashboards[0].spec) || 'course/acevo-cluster';
     const scope = $('scope').value;
     let url = '/dashboard/' + spec + '?demo';
     if (scope !== 'global') url += '&game=' + encodeURIComponent(GAME_KEY);
@@ -365,11 +440,11 @@
     if (scope !== 'dashboard') url += '&nodash=1';
     return url;
   }
-
   function reloadPreview() {
-    PREVIEW.src = previewUrl();
+    const url = previewUrl();
+    $('preview').src = url;
+    $('previewOpen').href = url;
   }
-
   async function loadEffective() {
     const scope = $('scope').value;
     const query = [];
@@ -382,14 +457,14 @@
       query.push('dashboard=' + encodeURIComponent($('dashKey').value));
     }
     const url = '/api/themes/active' + (query.length ? '?' + query.join('&') : '');
-    const theme = await fetch(url, { cache: 'no-store' }).then(r => r.json());
-    fillForm(theme);
-    if (theme && theme.id && info && info.themes[theme.id]) {
-      $('preset').value = theme.id;
-    }
-    return theme;
+    try {
+      const theme = await fetch(url, { cache: 'no-store' }).then(r => r.json());
+      fillForm(theme);
+      if (theme && theme.id && info && info.themes[theme.id]) {
+        $('preset').value = theme.id;
+      }
+    } catch (e) {}
   }
-
   function updateScopeUi() {
     const scope = $('scope').value;
     $('keyWrap').style.display = scope === 'car' ? '' : 'none';
@@ -397,13 +472,11 @@
     reloadPreview();
     loadEffective();
   }
-
   async function resetScope() {
     const scope = $('scope').value;
     const key = scopeKey();
     if (scope === 'dashboard' && !key) {
-      setStatus('Choisis un compteur.', true);
-      return;
+      setStatus('status', 'Choisis un compteur.', 'err'); return;
     }
     try {
       const r = await fetch('/api/themes/reset', {
@@ -412,69 +485,304 @@
       });
       const result = await r.json();
       if (!r.ok || !result.ok) throw new Error(result.error || 'erreur');
-      setStatus('Portée réinitialisée.');
+      setStatus('status', 'Portée réinitialisée.', 'ok');
       await loadEffective();
       reloadPreview();
     } catch (e) {
-      setStatus('Échec : ' + e.message, true);
+      setStatus('status', 'Échec : ' + e.message, 'err');
+    }
+  }
+  function fitPreview() {
+    const stage = $('previewStage');
+    const frame = $('preview');
+    if (!stage || !frame) return;
+    const width = stage.clientWidth;
+    if (!width) return;
+    const scale = width / 1024;
+    frame.style.transform = 'scale(' + scale + ')';
+    stage.style.height = (600 * scale) + 'px';
+  }
+
+  /* ---------- écrans ---------- */
+  let screenInfo = null, selectedScreen = null;
+  function screenLabel(screen) {
+    return (screen.device ? screen.device + ' · ' : '') +
+      screen.width + '×' + screen.height + ' · X=' + screen.x +
+      ', Y=' + screen.y + (screen.primary ? ' · principal' : '');
+  }
+  function renderScreens() {
+    if (!screenInfo) return;
+    const current = screenInfo.current || {};
+    $('screenCurrent').textContent = current.width ?
+      current.width + '×' + current.height + ' · X=' + current.x +
+      ', Y=' + current.y + (current.device ? ' · ' + current.device : '')
+      : 'Non configuré';
+    const list = $('screenList');
+    list.textContent = '';
+    const screens = screenInfo.screens || [];
+    if (!screens.length) {
+      const p = document.createElement('p');
+      p.className = 'hint';
+      p.textContent = screenInfo.platform === 'win32'
+        ? 'Aucun écran détecté.'
+        : 'Détection des écrans disponible sous Windows.';
+      list.appendChild(p);
+      return;
+    }
+    if (!selectedScreen) {
+      selectedScreen = screens.find(s => s.device === current.device) ||
+        screenInfo.detected || screens[0];
+    }
+    screens.forEach(s => {
+      const d = document.createElement('div');
+      d.className = 'monitor' + (selectedScreen &&
+        s.device === selectedScreen.device && s.x === selectedScreen.x &&
+        s.y === selectedScreen.y ? ' sel' : '');
+      const left = document.createElement('div');
+      const name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = s.device || 'Écran';
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = s.width + '×' + s.height + ' · X=' + s.x +
+        ', Y=' + s.y + (s.primary ? ' · principal' : '');
+      left.append(name, meta);
+      const badge = document.createElement('span');
+      badge.className = 'meta';
+      badge.textContent = s.width === 1024 && s.height === 600 ? '7"' : '';
+      d.append(left, badge);
+      d.addEventListener('click', () => {
+        selectedScreen = s;
+        renderScreens();
+      });
+      list.appendChild(d);
+    });
+  }
+  async function loadScreens() {
+    try {
+      screenInfo = await fetch('/api/screens', { cache: 'no-store' })
+        .then(r => r.json());
+      selectedScreen = null;
+      renderScreens();
+    } catch (e) {
+      setStatus('screenStatus', 'Détection impossible.', 'err');
+    }
+  }
+  async function saveScreen() {
+    if (!selectedScreen) {
+      setStatus('screenStatus', 'Choisis un écran.', 'err');
+      return false;
+    }
+    try {
+      const r = await fetch('/api/screens', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ screen: selectedScreen }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) throw new Error(data.error || 'échec');
+      screenInfo.current = data.screen;
+      renderScreens();
+      setStatus('screenStatus', 'Écran enregistré.', 'ok');
+      return true;
+    } catch (e) {
+      setStatus('screenStatus', 'Échec : ' + e.message, 'err');
+      return false;
+    }
+  }
+  async function testScreen() {
+    if (!await saveScreen()) return;
+    const spec = $('defaultDashboard').value ||
+      (dashboards[0] && dashboards[0].spec);
+    try {
+      const r = await fetch('/api/launch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dashboard: spec }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) throw new Error(data.error || 'échec');
+      setStatus('screenStatus', data.method === 'default-browser'
+        ? 'Ouvert dans le navigateur par défaut.' : 'Ouvert sur l\'écran.',
+        'ok');
+    } catch (e) {
+      setStatus('screenStatus', 'Échec : ' + e.message, 'err');
     }
   }
 
-  function fitPreview() {
-    const scale = Math.min((MAIN.clientWidth - 40) / 1024, (MAIN.clientHeight - 40) / 600);
-    PREVIEW.style.transform = 'scale(' + scale + ')';
-    STAGE.style.width = (1024 * scale) + 'px';
-    STAGE.style.height = (600 * scale) + 'px';
+  /* ---------- jeux ---------- */
+  async function loadGames() {
+    try {
+      const data = await fetch('/api/games', { cache: 'no-store' })
+        .then(r => r.json());
+      renderGames(data.games || []);
+    } catch (e) {
+      $('gamesList').textContent = 'Impossible de charger les jeux.';
+    }
+  }
+  function gameStatusText(game) {
+    if (game.platform !== 'win32') return 'Lancement Windows uniquement';
+    if (game.exe_exists) return 'Chemin configuré';
+    if (game.detected) return 'Détecté automatiquement';
+    return 'Non configuré';
+  }
+  function renderGames(games) {
+    const box = $('gamesList');
+    box.textContent = '';
+    games.forEach(game => {
+      const card = document.createElement('div');
+      card.className = 'game-card';
+      const h = document.createElement('h2');
+      h.textContent = game.name;
+      const appid = document.createElement('div');
+      appid.className = 'appid';
+      appid.textContent = 'Steam AppID ' + game.app_id + ' · ' +
+        gameStatusText(game);
+      const field = document.createElement('label');
+      field.className = 'field';
+      const span = document.createElement('span');
+      span.textContent = 'Chemin de l\'exécutable';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.id = 'game-exe-' + game.key;
+      input.value = game.exe || game.detected || '';
+      input.placeholder = '…\\' + game.name + '\\' + game.key + '.exe';
+      field.append(span, input);
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      const detect = document.createElement('button');
+      detect.type = 'button'; detect.className = 'ghost'; detect.textContent = 'Détecter';
+      const save = document.createElement('button');
+      save.type = 'button'; save.className = 'primary'; save.textContent = 'Enregistrer';
+      const launch = document.createElement('button');
+      launch.type = 'button'; launch.textContent = 'Lancer';
+      const status = document.createElement('span');
+      status.className = 'status';
+      actions.append(detect, save, launch, status);
+      card.append(h, appid, field, actions);
+      box.appendChild(card);
+      detect.addEventListener('click', async () => {
+        try {
+          const r = await fetch('/api/games/' + game.key + '/detect',
+            { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: '{}' });
+          const data = await r.json();
+          if (data.exe) {
+            status.textContent = 'Détecté : ' + data.exe;
+            status.className = 'status ok';
+            input.value = data.exe;
+          } else {
+            status.textContent = 'Non détecté. Renseigne le chemin.';
+            status.className = 'status err';
+          }
+        } catch (e) { status.textContent = 'Échec : ' + e.message; status.className = 'status err'; }
+      });
+      save.addEventListener('click', async () => {
+        try {
+          const r = await fetch('/api/games/' + game.key, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ exe: input.value.trim() }),
+          });
+          const data = await r.json();
+          if (!r.ok || !data.ok) throw new Error(data.error || 'échec');
+          status.textContent = data.game.exe_exists ? 'Chemin enregistré.' :
+            'Chemin enregistré (fichier introuvable).';
+          status.className = 'status ' + (data.game.exe_exists ? 'ok' : 'err');
+        } catch (e) { status.textContent = 'Échec : ' + e.message; status.className = 'status err'; }
+      });
+      launch.addEventListener('click', async () => {
+        try {
+          const r = await fetch('/api/games/' + game.key + '/launch',
+            { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: '{}' });
+          const data = await r.json();
+          if (!r.ok || !data.ok) throw new Error(data.error || 'échec');
+          status.textContent = data.method === 'steam' ? 'Lancé via Steam.' :
+            'Jeu lancé.';
+          status.className = 'status ok';
+        } catch (e) { status.textContent = 'Échec : ' + e.message; status.className = 'status err'; }
+      });
+    });
+  }
+
+  /* ---------- compteur par défaut / système ---------- */
+  async function loadApp() {
+    try {
+      const data = await fetch('/api/app', { cache: 'no-store' })
+        .then(r => r.json());
+      const select = $('defaultDashboard');
+      select.textContent = '';
+      dashboards.forEach(d => {
+        const o = document.createElement('option');
+        o.value = d.spec;
+        o.textContent = d.name + ' — ' + d.category_label;
+        select.appendChild(o);
+      });
+      if (data.default_dashboard) select.value = data.default_dashboard;
+      $('systemDefault').textContent = data.default_dashboard ||
+        (select.selectedOptions[0] && select.selectedOptions[0].textContent) || '--';
+      $('systemVersion').textContent = 'v' + (data.version || 'dev');
+    } catch (e) {}
+  }
+  async function saveDefault() {
+    try {
+      const r = await fetch('/api/app', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ default_dashboard: $('defaultDashboard').value }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) throw new Error(data.error || 'échec');
+      setStatus('defaultStatus', 'Compteur par défaut enregistré.', 'ok');
+      $('systemDefault').textContent = data.default_dashboard;
+    } catch (e) {
+      setStatus('defaultStatus', 'Échec : ' + e.message, 'err');
+    }
   }
 
   async function init() {
-    info = await fetch('/api/themes', { cache: 'no-store' }).then(r => r.json());
-    const preset = $('preset');
-    Object.values(info.themes).forEach(theme => {
-      const option = document.createElement('option');
-      option.value = theme.id;
-      option.textContent = theme.name || theme.id;
-      preset.append(option);
-    });
-    preset.value = info.state.active || info.active;
-
     try {
-      const data = await fetch('/api/dashboards', { cache: 'no-store' }).then(r => r.json());
-      dashboards = data.dashboards || [];
-      const select = $('dashKey');
-      dashboards.forEach(dash => {
-        const option = document.createElement('option');
-        option.value = dash.spec;
-        option.textContent = dash.name + ' — ' + dash.category_label;
-        select.append(option);
+      info = await fetch('/api/themes', { cache: 'no-store' }).then(r => r.json());
+      const preset = $('preset');
+      Object.values(info.themes).forEach(theme => {
+        const o = document.createElement('option');
+        o.value = theme.id; o.textContent = theme.name || theme.id;
+        preset.appendChild(o);
       });
-      const requested = new URLSearchParams(location.search).get('dashboard');
-      const wanted = dashboards.find(d => d.spec === requested || d.id === requested);
-      if (wanted) {
-        select.value = wanted.spec;
-        $('scope').value = 'dashboard';
-      } else if (data.default) {
-        select.value = data.default;
-      } else if (dashboards[0]) {
-        select.value = dashboards[0].spec;
-      }
-    } catch (_) {}
+      preset.value = info.state.active || info.active;
+    } catch (e) {
+      setStatus('status', 'Thèmes indisponibles.', 'err');
+    }
 
     try {
-      const dash = await fetch('/api/dash', { cache: 'no-store' }).then(r => r.json());
+      dashboards = (await fetch('/api/dashboards', { cache: 'no-store' })
+        .then(r => r.json())).dashboards || [];
+      const select = $('dashKey');
+      dashboards.forEach(d => {
+        const o = document.createElement('option');
+        o.value = d.spec; o.textContent = d.name + ' — ' + d.category_label;
+        select.appendChild(o);
+      });
+      if (dashboards[0]) select.value = dashboards[0].spec;
+    } catch (e) {}
+
+    try {
+      const dash = await fetch('/api/dash', { cache: 'no-store' })
+        .then(r => r.json());
       if (dash && dash.car) $('key').value = dash.car;
       if (dash && dash.game_id) {
         GAME_KEY = dash.game_id;
         GAME_LABEL = dash.game || GAME_KEY.toUpperCase();
-        const opt = $('scopeGame');
-        if (opt) opt.textContent = 'Jeu — ' + GAME_LABEL;
+        $('scopeGame').textContent = 'Jeu — ' + GAME_LABEL;
+        $('systemSource').textContent = GAME_LABEL;
+        $('sourceInfo').textContent = 'Source active : ' + GAME_LABEL;
+      } else {
+        $('systemSource').textContent = 'En attente du jeu';
+        $('sourceInfo').textContent = 'Source : détection automatique';
       }
-    } catch (_) {}
+    } catch (e) {}
 
-    preset.addEventListener('change', async () => {
-      const theme = info.themes[preset.value];
+    $('preset').addEventListener('change', async () => {
+      const theme = info && info.themes[$('preset').value];
       if (theme) fillForm(theme);
-      await save();
+      await saveTheme();
     });
     $('scope').addEventListener('change', updateScopeUi);
     $('key').addEventListener('change', () => { reloadPreview(); loadEffective(); });
@@ -483,33 +791,29 @@
       if ($('scope').value === 'dashboard') loadEffective();
     });
     $('reset').addEventListener('click', resetScope);
-    $('gameDetect').addEventListener('click', detectGame);
-    $('gameLaunch').addEventListener('click', launchGame);
-    $('gameSave').addEventListener('click', async () => {
-      try {
-        const data = await saveGame();
-        const g = data.game || {};
-        if (!g.exe) {
-          setGameStatus(g.platform === 'win32'
-            ? 'Lancement via Steam.' : 'Lancement du jeu : Windows uniquement.', '');
-        } else if (g.exe_exists) {
-          setGameStatus('Chemin enregistré.', 'ok');
-        } else {
-          setGameStatus('Chemin enregistré, mais fichier introuvable.', 'err');
-        }
-      } catch (e) {
-        setGameStatus('Échec : ' + e.message, 'err');
-      }
-    });
     $('unitSpeed').addEventListener('change', scheduleSave);
     $('unitTemp').addEventListener('change', scheduleSave);
+    $('screenDetect').addEventListener('click', loadScreens);
+    $('screenSave').addEventListener('click', saveScreen);
+    $('screenTest').addEventListener('click', testScreen);
+    $('saveDefault').addEventListener('click', saveDefault);
     addEventListener('resize', fitPreview);
 
-    loadGame();
-    fitPreview();
+    await loadApp();
+    await loadScreens();
+    await loadGames();
+    const requested = new URLSearchParams(location.search).get('dashboard');
+    const wanted = dashboards.find(d => d.spec === requested ||
+      d.id === requested);
+    if (wanted) {
+      $('dashKey').value = wanted.spec;
+      $('scope').value = 'dashboard';
+    }
     updateScopeUi();
+    fitPreview();
+    const hash = (location.hash || (wanted ? '#appearance' : '#screen')).slice(1);
+    showTab(hash);
   }
-
   init();
 })();
 </script>

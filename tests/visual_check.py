@@ -151,6 +151,15 @@ def main():
             print(path)
             page.close()
 
+            for tab in ("screen", "games", "system"):
+                page = new_page(1400, 980)
+                page.goto(base + "/settings#" + tab, wait_until="load")
+                page.wait_for_timeout(1000)
+                path = OUT / ("settings-%s-1400x980.png" % tab)
+                page.screenshot(path=str(path))
+                print(path)
+                page.close()
+
             page = new_page(1400, 980)
             page.goto(base + "/update", wait_until="networkidle")
             page.wait_for_timeout(500)

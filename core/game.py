@@ -1,72 +1,67 @@
-"""Lancement d'Assetto Corsa Evo et chemin du jeu.
+"""Lancement des jeux (AC Evo, AC 2014, AMS2) et chemins configurables.
 
-Le chemin est stocke dans ``game.json`` (ignore par git). Si aucun chemin
-n'est configure, on tente de detecter l'installation Steam, puis on passe par
-le protocole ``steam://rungameid/<appid>``.
+Les chemins sont dans ``app.json`` (via ``core.app_settings``). La detection
+Steam est commune aux trois jeux ; en dernier recours on ouvre le protocole
+``steam://rungameid/<appid>``.
 """
 import json
 import os
 import re
 import subprocess
 import sys
-import threading
 from pathlib import Path
 
-from core.config import ROOT
+from core import app_settings
 
-GAME_FILE = ROOT / "game.json"
-DEFAULT_APP_ID = "3058630"
-EXE_NAME = "AssettoCorsaEVO.exe"
-INSTALL_DIR = "Assetto Corsa EVO"
+GAMES = {
+    "acevo": {
+        "name": "Assetto Corsa Evo", "app_id": "3058630",
+        "install": "Assetto Corsa EVO", "exe": "AssettoCorsaEVO.exe",
+    },
+    "ac": {
+        "name": "Assetto Corsa", "app_id": "244210",
+        "install": "assettocorsa", "exe": "acs.exe",
+    },
+    "ams2": {
+        "name": "Automobilista 2", "app_id": "1066890",
+        "install": "Automobilista 2", "exe": "AMS2.exe",
+    },
+}
+DEFAULT_GAME = "acevo"
+DEFAULT_APP_ID = GAMES[DEFAULT_GAME]["app_id"]
+GAME_FILE = app_settings.LEGACY_GAME_FILE  # compatibilite
 
-_lock = threading.Lock()
+
+def _meta(key):
+    return GAMES.get(key) or GAMES[DEFAULT_GAME]
+
+
+def load_game(key):
+    meta = _meta(key)
+    saved = app_settings.game(key)
+    return {
+        "key": key,
+        "name": meta["name"],
+        "app_id": str(saved.get("app_id") or meta["app_id"]),
+        "exe": str(saved.get("exe") or ""),
+        "install": meta["install"],
+        "exe_name": meta["exe"],
+    }
 
 
 def load():
-    state = {"exe": "", "app_id": DEFAULT_APP_ID}
-    try:
-        saved = json.loads(GAME_FILE.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return state
-    if not isinstance(saved, dict):
-        return state
-    exe = saved.get("exe")
-    if isinstance(exe, str):
-        state["exe"] = exe.strip()
-    app_id = saved.get("app_id")
-    if isinstance(app_id, str) and app_id.isdigit():
-        state["app_id"] = app_id
-    return state
+    return load_game(DEFAULT_GAME)
 
 
-def _clean_exe(value):
-    if not isinstance(value, str):
-        raise ValueError("chemin invalide")
-    exe = os.path.expandvars(os.path.expanduser(value.strip().strip('"')))
-    if len(exe) > 1024:
-        raise ValueError("chemin trop long")
-    if any(c in exe for c in ("\x00", "\n", "\r")):
-        raise ValueError("chemin invalide")
-    return exe
+def save_game(key, payload):
+    if key not in GAMES:
+        raise ValueError("jeu inconnu")
+    app_settings.save_game(key, payload)
+    return load_game(key)
 
 
 def save(payload):
-    if not isinstance(payload, dict):
-        raise ValueError("payload invalide")
-    with _lock:
-        state = load()
-        if "exe" in payload:
-            state["exe"] = _clean_exe(payload["exe"])
-        if "app_id" in payload:
-            app_id = payload["app_id"]
-            if not isinstance(app_id, str) or not app_id.isdigit():
-                raise ValueError("app id invalide")
-            state["app_id"] = app_id
-        tmp = GAME_FILE.with_suffix(".tmp")
-        tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False),
-                       encoding="utf-8")
-        tmp.replace(GAME_FILE)
-        return state
+    return save_game(DEFAULT_GAME, payload)
 
 
 def _steam_roots():
@@ -107,22 +102,26 @@ def _steam_libraries(root):
     return libs
 
 
-def detect():
-    """Chemin de l'exe si Steam et le jeu sont installes, sinon vide."""
-    if sys.platform != "win32":
+def detect_game(key):
+    if key not in GAMES or sys.platform != "win32":
         return ""
+    meta = GAMES[key]
     seen = set()
     for root in _steam_roots():
         for lib in _steam_libraries(root):
-            key = os.path.normcase(lib)
-            if key in seen:
+            norm = os.path.normcase(lib)
+            if norm in seen:
                 continue
-            seen.add(key)
-            candidate = (Path(lib) / "steamapps" / "common" / INSTALL_DIR
-                         / EXE_NAME)
+            seen.add(norm)
+            candidate = (Path(lib) / "steamapps" / "common" /
+                         meta["install"] / meta["exe"])
             if candidate.is_file():
                 return str(candidate)
     return ""
+
+
+def detect():
+    return detect_game(DEFAULT_GAME)
 
 
 def _spawn(exe):
@@ -141,8 +140,10 @@ def _spawn(exe):
     subprocess.Popen([exe], **kwargs)
 
 
-def launch():
-    state = load()
+def launch_game(key):
+    if key not in GAMES:
+        return {"ok": False, "error": "jeu inconnu"}
+    state = load_game(key)
     exe = state["exe"]
     if exe and os.path.isfile(exe):
         try:
@@ -151,7 +152,7 @@ def launch():
         except OSError as exc:
             return {"ok": False, "error": str(exc)}
     if not exe:
-        found = detect()
+        found = detect_game(key)
         if found:
             try:
                 _spawn(found)
@@ -169,15 +170,29 @@ def launch():
             "error": "Renseigne le chemin du jeu dans les reglages."}
 
 
-def status():
-    state = load()
+def launch():
+    return launch_game(DEFAULT_GAME)
+
+
+def status_game(key):
+    state = load_game(key)
     exe = state["exe"]
     exists = bool(exe and os.path.isfile(exe))
     return {
+        "key": key,
+        "name": state["name"],
         "platform": sys.platform,
         "app_id": state["app_id"],
         "exe": exe,
         "exe_exists": exists,
-        "detected": detect() if not exists else "",
+        "detected": detect_game(key) if not exists else "",
         "steam": sys.platform == "win32",
     }
+
+
+def status():
+    return status_game(DEFAULT_GAME)
+
+
+def status_all():
+    return [status_game(key) for key in GAMES]

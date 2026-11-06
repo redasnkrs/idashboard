@@ -20,16 +20,18 @@ Routes principales :
 import json
 import queue
 import socket
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
-from core import (catalog, game, launcher, media, pump, studio,
-                  themes, updater)
+from core import (app_settings, catalog, game, launcher, media, pump,
+                  screens, studio, themes, updater)
 from core.config import (DEFAULT_DASHBOARD, HOME_FILE, PORT, SETTINGS_FILE,
-                         STREAM_HZ, STUDIO_DIR, UPDATE_FILE, dashboard_asset,
-                         dashboard_file, dashboard_manifest, spec_for_path)
+                         STREAM_HZ, STUDIO_DIR, UPDATE_FILE, VERSION,
+                         dashboard_asset, dashboard_file, dashboard_manifest,
+                         spec_for_path)
 from core.nav_snippet import NAV_HTML
 from core.schema import schema_info
 
@@ -102,6 +104,20 @@ class Handler(BaseHTTPRequestHandler):
             self._send(pump.STATE["dash"], "application/json")
         elif path == "/api/game":
             self._send(json.dumps(game.status()).encode(), "application/json")
+        elif path == "/api/screens":
+            found = screens.list_screens()
+            picked = screens.pick_7(found)
+            body = {"platform": sys.platform, "screens": found,
+                    "current": app_settings.screen(),
+                    "detected": picked}
+            self._send(json.dumps(body).encode(), "application/json")
+        elif path == "/api/games":
+            self._send(json.dumps({"games": game.status_all()}).encode(),
+                       "application/json")
+        elif path == "/api/app":
+            body = {"version": VERSION,
+                    "default_dashboard": app_settings.default_dashboard()}
+            self._send(json.dumps(body).encode(), "application/json")
         elif path == "/api/media":
             self._send(json.dumps(media.snapshot()).encode(),
                        "application/json")
@@ -178,7 +194,9 @@ class Handler(BaseHTTPRequestHandler):
             self._file(SETTINGS_FILE, "text/html; charset=utf-8")
         elif path == "/dashboard":
             query = self.path.partition("?")[2]
-            location = "/dashboard/%s" % DEFAULT_DASHBOARD
+            default = catalog.find(app_settings.default_dashboard())
+            spec = default["spec"] if default else DEFAULT_DASHBOARD
+            location = "/dashboard/%s" % spec
             if query:
                 location += "?" + query
             self._redirect(location)
@@ -205,6 +223,12 @@ class Handler(BaseHTTPRequestHandler):
             self._detect_game()
         elif path == "/api/game/launch":
             self._launch_game()
+        elif path == "/api/screens":
+            self._save_screen()
+        elif path == "/api/app":
+            self._save_app()
+        elif path.startswith("/api/games/"):
+            self._game_action(path[len("/api/games/"):])
         elif path == "/api/media/control":
             self._media_control()
         elif path == "/api/update/install":
@@ -439,6 +463,73 @@ class Handler(BaseHTTPRequestHandler):
         result = game.launch()
         self._send(json.dumps(result).encode(), "application/json",
                    200 if result.get("ok") else 400)
+
+    def _save_screen(self):
+        try:
+            payload = self._read_json()
+            saved = app_settings.save_screen(payload.get("screen"))
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
+                       "application/json", 400)
+            return
+        self._send(json.dumps({"ok": True, "screen": saved}).encode(),
+                   "application/json")
+
+    def _save_app(self):
+        try:
+            payload = self._read_json()
+            spec = payload.get("default_dashboard")
+            item = catalog.find(spec or DEFAULT_DASHBOARD)
+            if item is None:
+                raise ValueError("compteur inconnu")
+            saved = app_settings.save_default_dashboard(item["spec"])
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
+                       "application/json", 400)
+            return
+        self._send(json.dumps({"ok": True,
+                               "default_dashboard": saved}).encode(),
+                   "application/json")
+
+    def _game_action(self, suffix):
+        parts = suffix.strip("/").split("/")
+        key = parts[0] if parts else ""
+        action = parts[1] if len(parts) > 1 else ""
+        if key not in game.GAMES:
+            self._send(json.dumps({"ok": False,
+                                   "error": "jeu inconnu"}).encode(),
+                       "application/json", 400)
+            return
+        if action == "detect":
+            found = game.detect_game(key)
+            if found:
+                try:
+                    game.save_game(key, {"exe": found})
+                except ValueError:
+                    pass
+            self._send(json.dumps({"ok": bool(found), "exe": found,
+                                   "game": game.status_game(key)}).encode(),
+                       "application/json")
+            return
+        if action == "launch":
+            result = game.launch_game(key)
+            self._send(json.dumps(result).encode(), "application/json",
+                       200 if result.get("ok") else 400)
+            return
+        if action == "":
+            try:
+                payload = self._read_json()
+                game.save_game(key, payload)
+            except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                self._send(json.dumps({"ok": False,
+                                       "error": str(exc)}).encode(),
+                           "application/json", 400)
+                return
+            self._send(json.dumps({"ok": True,
+                                   "game": game.status_game(key)}).encode(),
+                       "application/json")
+            return
+        self.send_error(404)
 
     def _install_update(self):
         try:

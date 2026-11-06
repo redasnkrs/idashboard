@@ -3,17 +3,20 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from core import game
+from core import app_settings, game
 
 
 class GameTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.old_file = game.GAME_FILE
-        game.GAME_FILE = Path(self.tmp.name) / "game.json"
+        self.old_app = app_settings.APP_FILE
+        self.old_legacy = app_settings.LEGACY_GAME_FILE
+        app_settings.APP_FILE = Path(self.tmp.name) / "app.json"
+        app_settings.LEGACY_GAME_FILE = Path(self.tmp.name) / "game.json"
 
     def tearDown(self):
-        game.GAME_FILE = self.old_file
+        app_settings.APP_FILE = self.old_app
+        app_settings.LEGACY_GAME_FILE = self.old_legacy
         self.tmp.cleanup()
 
     def test_defaults(self):
@@ -62,6 +65,12 @@ class GameTest(unittest.TestCase):
     def test_detect_on_non_windows(self):
         if sys.platform != "win32":
             self.assertEqual("", game.detect())
+            self.assertEqual("", game.detect_game("ac"))
+            self.assertEqual("", game.detect_game("ams2"))
+
+    def test_all_games_status(self):
+        keys = {item["key"] for item in game.status_all()}
+        self.assertEqual({"acevo", "ac", "ams2"}, keys)
 
 
 if __name__ == "__main__":
