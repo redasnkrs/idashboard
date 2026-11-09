@@ -26,9 +26,9 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
-from core import (app_control, app_settings, catalog, game, health, launcher,
-                  media, pump, screens, simhub, simhub_faithful, startup,
-                  studio, themes, updater)
+from core import (app_control, app_settings, catalog, ets2_map, game, health,
+                  launcher, media, pump, screens, simhub, simhub_faithful,
+                  startup, studio, themes, updater)
 from core.config import (DEFAULT_DASHBOARD, HOME_FILE, PORT, SETTINGS_FILE,
                          STREAM_HZ, STUDIO_DIR, UPDATE_FILE, VERSION,
                          dashboard_asset, dashboard_file, dashboard_manifest,
@@ -134,6 +134,11 @@ class Handler(BaseHTTPRequestHandler):
             from core.logging_setup import recent_errors
             body = {"health": health.info(), "errors": recent_errors(30)}
             self._send(json.dumps(body).encode(), "application/json")
+        elif path == "/api/ets2/map":
+            self._send(json.dumps(ets2_map.info()).encode(),
+                       "application/json")
+        elif path.startswith("/api/ets2/map/tile/"):
+            self._ets2_map_tile(path[len("/api/ets2/map/tile/"):])
         elif path == "/api/media":
             self._send(json.dumps(media.snapshot()).encode(),
                        "application/json")
@@ -247,6 +252,13 @@ class Handler(BaseHTTPRequestHandler):
             self._save_app()
         elif path == "/api/startup":
             self._save_startup()
+        elif path == "/api/ets2/map/download":
+            self._send(json.dumps({"ok": ets2_map.start_download()}).encode(),
+                       "application/json")
+        elif path == "/api/ets2/map/import":
+            saved = ets2_map.import_from_simhub()
+            self._send(json.dumps({"ok": bool(saved), "path": saved}).encode(),
+                       "application/json")
         elif path == "/api/open-logs":
             self._send(json.dumps({"ok": app_control.open_logs()}).encode(),
                        "application/json")
@@ -368,6 +380,27 @@ class Handler(BaseHTTPRequestHandler):
         ctype = MIME.get(path.suffix.lower(), "application/octet-stream")
         self._file(path, ctype, SVG_CSP if path.suffix.lower() == ".svg"
                    else None)
+
+    def _ets2_map_tile(self, suffix):
+        parts = unquote(suffix).strip("/").split("/")
+        if len(parts) != 3:
+            self.send_error(404)
+            return
+        try:
+            z = int(parts[0])
+            x = int(parts[1])
+            y = int(parts[2].removesuffix(".png"))
+        except ValueError:
+            self.send_error(404)
+            return
+        if not (0 <= z <= 8 and 0 <= x < 1024 and 0 <= y < 1024):
+            self.send_error(404)
+            return
+        data = ets2_map.tile(z, x, y)
+        if data is None:
+            self.send_error(404)
+            return
+        self._send(data, "image/png")
 
     def _custom_dashboard(self, layout_id):
         layout_id = unquote(layout_id).strip().lower()

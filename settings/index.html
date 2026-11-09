@@ -183,6 +183,20 @@ html { touch-action: manipulation; }
       <span class="hint" id="sourceInfo"></span>
     </div>
     <div id="gamesList" class="games"></div>
+    <div class="card" style="max-width:760px;margin-top:18px">
+      <div class="row-between">
+        <div>
+          <div class="label">Carte GPS ETS2 locale</div>
+          <div class="big" id="ets2MapStatus">…</div>
+        </div>
+        <button id="ets2MapBtn" class="ghost" type="button">Installer la carte</button>
+      </div>
+      <p class="hint" id="ets2MapHint">
+        Carte réelle du jeu (tuiles ts-map), utilisée par idash sans lancer SimHub.
+        Environ 87 Mo, téléchargée une seule fois dans <code>custom/maps/</code>.
+      </p>
+      <div class="status" id="ets2MapProgress"></div>
+    </div>
   </section>
 
   <section class="panel" id="tab-appearance">
@@ -638,6 +652,47 @@ html { touch-action: manipulation; }
   }
 
   /* ---------- jeux ---------- */
+  async function loadMapInfo() {
+    try {
+      const info = await fetch('/api/ets2/map', { cache: 'no-store' })
+        .then(r => r.json());
+      const ok = !!info.ok;
+      $('ets2MapStatus').textContent = ok ? 'Installée' :
+        info.downloading ? 'Téléchargement…' : 'Non installée';
+      if (ok) {
+        $('ets2MapBtn').textContent = 'Vérifier';
+        $('ets2MapHint').textContent = info.path || '';
+      } else if (info.downloading) {
+        $('ets2MapBtn').textContent = 'Téléchargement…';
+        $('ets2MapProgress').textContent =
+          Math.round((info.progress || 0) * 100) + '%';
+      } else {
+        $('ets2MapBtn').textContent = 'Installer la carte';
+        $('ets2MapProgress').textContent = info.error || '';
+      }
+      if (info.downloading) setTimeout(loadMapInfo, 1000);
+      return info;
+    } catch (e) {
+      $('ets2MapStatus').textContent = 'Indisponible';
+    }
+  }
+  async function installMap() {
+    const info = await fetch('/api/ets2/map', { cache: 'no-store' })
+      .then(r => r.json());
+    if (info.ok) {
+      const local = await fetch('/api/ets2/map/import', { method: 'POST' });
+      if (local.ok) toast('Carte ETS2 prête.');
+      else toast('Carte ETS2 déjà disponible.');
+      loadMapInfo();
+      return;
+    }
+    const r = await fetch('/api/ets2/map/import', { method: 'POST' });
+    const data = await r.json();
+    if (data.ok) { toast('Carte ETS2 importée depuis SimHub.'); loadMapInfo(); return; }
+    await fetch('/api/ets2/map/download', { method: 'POST' });
+    toast('Téléchargement de la carte ETS2 lancé…');
+    loadMapInfo();
+  }
   async function loadGames() {
     try {
       const data = await fetch('/api/games', { cache: 'no-store' })
@@ -883,6 +938,7 @@ html { touch-action: manipulation; }
     $('screenSave').addEventListener('click', saveScreen);
     $('screenTest').addEventListener('click', testScreen);
     $('saveDefault').addEventListener('click', saveDefault);
+    $('ets2MapBtn').addEventListener('click', installMap);
     $('keepScreenToggle').addEventListener('change', saveKeepScreen);
     $('openOnStartToggle').addEventListener('change', saveOpenOnStart);
     $('startupToggle').addEventListener('change', saveStartup);
@@ -901,6 +957,7 @@ html { touch-action: manipulation; }
     await loadApp();
     await loadScreens();
     await loadGames();
+    loadMapInfo();
     const requested = new URLSearchParams(location.search).get('dashboard');
     const wanted = dashboards.find(d => d.spec === requested ||
       d.id === requested);

@@ -64,12 +64,11 @@ Le pont lit en priorité le jeu qu'il trouve (détection automatique) :
 - **Assetto Corsa 2014** (`acpmf_*`, shared memory classique) ;
 - **Automobilista 2** (`$pcars2$`, mode Shared Memory « Project CARS 2 » à
   activer dans les options du jeu) ;
-- **Euro Truck Simulator 2 / ATS via SimHub** : idash lit
-  `http://127.0.0.1:8888/api/getgamedata` et utilise aussi la carte GPS
-  SimHub (`/maps/map.html`). SimHub doit être lancé avec son serveur web sur
-  le port 8888. La carte affichée est celle de SimHub / du jeu, pas une carte
-  redessinée par idash ; les mods de carte suivent le paquet TruckMaps utilisé
-  par SimHub.
+- **Euro Truck Simulator 2 / ATS** : lecture directe de `Local\SCSTelemetry`
+  via le plugin SCS SDK (`truck-telemetry`), sans lancer SimHub. La carte GPS
+  est rendue par idash à partir des tuiles locales `tsmap-ets2.zip` ; c’est la
+  vraie carte du jeu, pas un tracé maison. L’API SimHub reste un fallback
+  optionnel si le plugin SCS n’est pas disponible.
 
 Pour forcer une source : `python main.py --game ac`, `--game ams2` ou
 `--game acevo`. Sans option, le pont essaie AC Evo, puis AC, puis AMS2.
@@ -144,10 +143,12 @@ Ouvre `http://localhost:25555/studio` (bouton **Studio** sur l'accueil).
 - Un compteur perso apparaît automatiquement dans l'accueil, les réglages,
   le swipe et le catalogue ; il utilise le thème global/compteur existant.
 
-Pour ETS2/ATS, importe le dashboard SimHub `Truck Route Advisor` puis sauvegarde-le.
-La zone carte utilise le vrai GPS SimHub. Si le serveur web SimHub n'est pas sur
-le port 8888, lance idash avec `IDASH_SIMHUB_API_URL` et
-`IDASH_SIMHUB_MAP_URL` adaptés.
+Pour ETS2/ATS, importe le dashboard SimHub `Truck Route Advisor`, puis
+installe la carte dans `/settings` → Jeux (`Installer la carte`, ~87 Mo). La
+carte est lue depuis `custom/maps/tsmap-ets2.zip` et affichée directement par
+idash, sans processus SimHub. Le plugin SCS SDK doit être présent dans
+`bin/win_x64/plugins` du jeu (SimHub en installe souvent un ; sinon utilise
+`scs-sdk-plugin` de RenCloud).
 
 Les fichiers générés sont dans `custom/` (ignoré par git) :
 `custom/layouts/`, `custom/previews/`, `custom/icons/`,

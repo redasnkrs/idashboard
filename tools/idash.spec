@@ -40,7 +40,9 @@ a = Analysis(
     pathex=[str(ROOT)],
     binaries=binaries,
     datas=datas,
-    hiddenimports=hiddenimports + ["pystray", "PIL", "PIL.ImageDraw"],
+    hiddenimports=hiddenimports + [
+        "pystray", "PIL", "PIL.ImageDraw", "truck_telemetry",
+    ],
     hookspath=[],
     runtime_hooks=[],
     excludes=[],

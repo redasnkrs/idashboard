@@ -317,30 +317,168 @@
         "stroke-width": Math.max(1, item.outerStroke * .5 || 2) }, g);
     }
   }
-  function drawETSMap(item, parent, url) {
+  let etsMapInfo = null;
+  const etsTiles = new Map();
+
+  function loadETSMapInfo() {
+    if (etsMapInfo) return Promise.resolve(etsMapInfo);
+    etsMapInfo = fetch("/api/ets2/map", { cache: "no-store" })
+      .then(r => r.json()).catch(() => ({ ok: false }));
+    return etsMapInfo;
+  }
+
+  function drawETSMap(item, parent, updates) {
     const fo = el("foreignObject", {
       x: item.left, y: item.top, width: item.width, height: item.height,
     }, parent);
     const box = document.createElementNS(XHTML, "div");
-    box.setAttribute("style", "width:100%;height:100%;background:#0b0b0b;" +
+    box.setAttribute("style", "width:100%;height:100%;background:#111;" +
       "overflow:hidden;position:relative");
-    if (!url) {
-      const note = document.createElementNS(XHTML, "div");
-      note.setAttribute("style", "position:absolute;inset:0;display:flex;" +
-        "align-items:center;justify-content:center;color:#8a8272;" +
-        "font:14px sans-serif");
-      note.textContent = "Map SimHub indisponible";
-      box.appendChild(note);
-    } else {
-      const iframe = document.createElementNS(XHTML, "iframe");
-      iframe.setAttribute("src", url);
-      iframe.setAttribute("title", "SimHub ETS2 map");
-      iframe.setAttribute("loading", "eager");
-      iframe.setAttribute("style", "width:100%;height:100%;border:0;" +
-        "background:#0b0b0b;display:block");
-      box.appendChild(iframe);
-    }
+    const canvas = document.createElementNS(XHTML, "canvas");
+    canvas.width = Math.max(1, Math.round(item.width));
+    canvas.height = Math.max(1, Math.round(item.height));
+    canvas.setAttribute("style", "width:100%;height:100%;display:block");
+    box.appendChild(canvas);
     fo.appendChild(box);
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+    let mapInfo = null, state = {}, lastKey = "", timer = 0;
+
+    function schedule() {
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = 0;
+        draw();
+      }, 60);
+    }
+
+    function draw() {
+      ctx.fillStyle = "#141414";
+      ctx.fillRect(0, 0, W, H);
+      if (!mapInfo || !mapInfo.ok || !mapInfo.tile) {
+        ctx.fillStyle = "#8a8272";
+        ctx.font = "16px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Carte ETS2 non installée", W / 2, H / 2 - 8);
+        ctx.font = "13px sans-serif";
+        ctx.fillText("Réglages → Jeux → Installer la carte", W / 2, H / 2 + 18);
+        return;
+      }
+      const t = mapInfo.tile;
+      const speed = Math.abs(Number(state.v) || 0);
+      let z = speed > 120 ? 5 : speed > 60 ? 6 : 7;
+      z = Math.max(t.minZoom || 0, Math.min(t.maxZoom || 8, z));
+      const span = 256 * Math.pow(2, z);
+      const worldW = (t.x2 - t.x1) || 1;
+      const worldH = (t.y2 - t.y1) || 1;
+      const mx = state.map_x == null ? (t.x1 + t.x2) / 2 : state.map_x;
+      const my = state.map_y == null ? (t.y1 + t.y2) / 2 : state.map_y;
+      const px = (mx - t.x1) / worldW * span;
+      const py = (t.y2 - my) / worldH * span;
+      const left = px - W / 2;
+      const top = py - H / 2;
+      const x0 = Math.floor(left / 256), x1 = Math.floor((left + W) / 256);
+      const y0 = Math.floor(top / 256), y1 = Math.floor((top + H) / 256);
+      const max = Math.pow(2, z);
+      for (let x = x0; x <= x1; x++) {
+        if (x < 0 || x >= max) continue;
+        for (let y = y0; y <= y1; y++) {
+          if (y < 0 || y >= max) continue;
+          const key = z + "/" + x + "/" + y;
+          let img = etsTiles.get(key);
+          if (!img) {
+            img = new Image();
+            img.onload = schedule;
+            img.onerror = () => { etsTiles.set(key, false); };
+            img.src = "/api/ets2/map/tile/" + key + ".png";
+            etsTiles.set(key, img);
+          }
+          if (img && img.complete && img.naturalWidth) {
+            ctx.drawImage(img, x * 256 - left, y * 256 - top, 256, 256);
+          }
+        }
+      }
+      if (state.map_x != null && state.map_y != null) {
+        ctx.save();
+        ctx.translate(W / 2, H / 2);
+        ctx.rotate((Number(state.map_heading) || 0) * Math.PI / 180);
+        ctx.beginPath();
+        ctx.moveTo(0, -12);
+        ctx.lineTo(8, 10);
+        ctx.lineTo(0, 6);
+        ctx.lineTo(-8, 10);
+        ctx.closePath();
+        ctx.fillStyle = "#ff5a2a";
+        ctx.fill();
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function update(next) {
+      state = next || {};
+      const key = [state.map_x, state.map_y, state.map_heading,
+        Math.round((state.v || 0) / 10)].join("|");
+      if (key !== lastKey) { lastKey = key; schedule(); }
+    }
+
+    loadETSMapInfo().then(info => {
+      mapInfo = info;
+      schedule();
+    });
+    updates.push(update);
+    update({});
+  }
+
+  function drawLinearGauge(item, parent, updates, defs) {
+    const frac = v => {
+      const min = item.minimum == null ? 0 : item.minimum;
+      const max = item.maximum == null ? 100 : item.maximum;
+      return clamp((Number(v) - min) / ((max - min) || 1));
+    };
+    if (item.backgroundSrc) {
+      el("image", {
+        href: item.backgroundSrc, x: item.left, y: item.top,
+        width: item.width, height: item.height,
+        preserveAspectRatio: "xMidYMid meet",
+      }, parent);
+      return;
+    }
+    const vertical = item.orientation === 1;
+    const track = el("rect", {
+      x: item.left, y: item.top, width: item.width, height: item.height,
+      rx: 2,
+      fill: item.trackColor ? paint({ kind: "solid", color: item.trackColor }, defs) : "none",
+      stroke: paint({ kind: "solid", color: "#FF555555" }, defs),
+      "stroke-width": 1,
+    }, parent);
+    const fill = el("rect", {
+      x: item.left, y: item.top, width: 0, height: 0,
+      rx: 2,
+      fill: paint({ kind: "solid", color: item.color || "#FFFFFFFF" }, defs),
+    }, parent);
+    updates.push(state => {
+      let raw = item.value && state ? state[item.value.field] : null;
+      if (raw != null && item.value) {
+        raw = Number(raw) * (item.value.scale == null ? 1 : item.value.scale) +
+          (item.value.offset == null ? 0 : item.value.offset);
+      }
+      const f = frac(raw == null ? item.minimum : raw);
+      if (vertical) {
+        const h = item.height * f;
+        fill.setAttribute("x", item.left);
+        fill.setAttribute("y", item.top + item.height - h);
+        fill.setAttribute("width", item.width);
+        fill.setAttribute("height", h);
+      } else {
+        fill.setAttribute("x", item.left);
+        fill.setAttribute("y", item.top);
+        fill.setAttribute("width", item.width * f);
+        fill.setAttribute("height", item.height);
+      }
+    });
   }
 
   function drawItem(item, parent, ctx) {
@@ -370,7 +508,9 @@
     } else if (item.type === "DialGauge") {
       drawGauge(item, g, ctx.defs, ctx.updates);
     } else if (item.type === "ETSMap") {
-      drawETSMap(item, g, ctx.mapUrl);
+      drawETSMap(item, g, ctx.updates);
+    } else if (item.type === "LinearGauge") {
+      drawLinearGauge(item, g, ctx.updates, ctx.defs);
     }
   }
   function render(svg, layout, opts) {

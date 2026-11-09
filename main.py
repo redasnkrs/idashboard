@@ -28,7 +28,12 @@ def _make_source(fake, game):
     if fake or game == "fake":
         from adapters.fake import FakeSource
         return FakeSource()
-    if game in ("simhub", "ets2", "ats"):
+    if game in ("ets2", "ats"):
+        from adapters.auto import AutoSource
+        from adapters.scs import ScsSource
+        from adapters.simhub import SimHubSource
+        return AutoSource([ScsSource(), SimHubSource()])
+    if game == "simhub":
         from adapters.simhub import SimHubSource
         return SimHubSource()
     if sys.platform != "win32":
@@ -49,6 +54,7 @@ def _make_source(fake, game):
     from adapters.ac import AcSource
     from adapters.ams2 import Ams2Source
     from adapters.auto import AutoSource
+    from adapters.scs import ScsSource
     from adapters.simhub import SimHubSource
     sources = []
     try:
@@ -58,6 +64,7 @@ def _make_source(fake, game):
         pass
     sources.append(AcSource())
     sources.append(Ams2Source())
+    sources.append(ScsSource())
     sources.append(SimHubSource())
     return AutoSource(sources)
 

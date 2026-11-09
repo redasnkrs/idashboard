@@ -325,7 +325,20 @@ class _FaithfulImporter(_Importer):
         if kind == "ETSMap":
             return self._base_item(item, ctx, "ETSMap")
         if kind == "LinearGaugeItem":
-            return None
+            out = self._base_item(item, ctx, "LinearGauge")
+            out["value"] = self._bind(_formula(item, "Value"))
+            if _text(item.get("Name"), 80).lower() == "fuelgauge" and \
+                    out["value"] and out["value"].get("field") == "fp":
+                out["value"]["scale"] = 100.0
+            out["minimum"] = _num(item.get("Minimum"), 0)
+            out["maximum"] = _num(item.get("Maximum"), 100)
+            out["orientation"] = int(_num(item.get("GaugeOrientation"), 1))
+            out["color"] = _text(item.get("GaugeColor"), 20) or "#FFFFFFFF"
+            out["trackColor"] = _text(item.get("BackgroundColor"), 20)
+            out["backgroundSrc"] = self.resolve_image(
+                item.get("BackgroundImage"))
+            out["gaugeSrc"] = self.resolve_image(item.get("GaugeImage"))
+            return out
         if kind in ("GeneratedMapItem", "GeneratedStaticMapItem", "MapItem"):
             return None
         self.warn("type SimHub non supporte: %s" % kind)

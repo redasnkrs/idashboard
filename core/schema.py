@@ -71,6 +71,9 @@ DASH_SCHEMA = {
     "wear_trailer": "number|null",
     "wear_cargo": "number|null",
     "speed_limit": "number|null",
+    "map_x": "number|null",
+    "map_y": "number|null",
+    "map_heading": "number|null",
 }
 
 

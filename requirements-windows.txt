@@ -1,2 +1,3 @@
 -r requirements.txt
 acevo-sdk
+truck-telemetry
