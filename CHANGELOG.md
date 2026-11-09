@@ -4,6 +4,16 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.10.0] - 2026-11-09
+
+### Ajouté
+- Mode **Sync écran** pour les ambient lights, comme DX Light : capture de
+  l’écran principal et envoi des couleurs au bandeau.
+- Deux modes : **Dégradé horizontal** (une couleur par LED le long de l’écran)
+  et **Bords gauche/droite** (couleur moyenne de chaque moitié).
+- Les clignotants, drapeaux et frein restent prioritaires par-dessus la sync.
+- Lissage temporel pour éviter le clignotement des couleurs.
+
 ## [0.9.6] - 2026-11-09
 
 ### Ajouté

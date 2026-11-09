@@ -50,6 +50,7 @@ _error = ""
 _test = None
 _test_until = 0.0
 _last_dash = {}
+_last_sync = []
 
 
 def _checksum(data):
@@ -273,15 +274,50 @@ def _flag_color(flag):
     return None
 
 
+def _screen_colors(count, cfg):
+    global _last_sync
+    try:
+        from PIL import ImageGrab, Image
+    except Exception:
+        return None
+    try:
+        shot = ImageGrab.grab(all_screens=False).convert("RGB")
+    except Exception:
+        return None
+    try:
+        if cfg.get("sync_mode") == "sides":
+            small = shot.resize((2, 1), Image.Resampling.BOX)
+            left = small.getpixel((0, 0))
+            right = small.getpixel((1, 0))
+            half = max(1, count // 2)
+            colors = [left] * half + [right] * (count - half)
+        else:
+            small = shot.resize((count, 1), Image.Resampling.BOX)
+            colors = [small.getpixel((i, 0)) for i in range(count)]
+    except Exception:
+        return None
+    if len(_last_sync) != count:
+        _last_sync = list(colors)
+    else:
+        colors = [tuple(int(old * 0.65 + new * 0.35) for old, new in
+                        zip(_last_sync[i], colors[i])) for i in range(count)]
+        _last_sync = list(colors)
+    return [_scale(color, cfg["brightness"]) for color in colors]
+
+
 def _render(dash, cfg, count):
     idle = _scale(_color(cfg.get("idle_color")), cfg["brightness"])
     leds = [idle] * count
     if not dash or not dash.get("c"):
         return leds
 
+    sync_colors = _screen_colors(count, cfg) if cfg.get("sync") else None
+    if sync_colors:
+        leds = sync_colors
+
     rpm = float(dash.get("r") or 0)
     max_rpm = float(dash.get("rm") or 0)
-    if cfg.get("rpm") and max_rpm > 0:
+    if cfg.get("rpm") and not sync_colors and max_rpm > 0:
         frac = max(0.0, min(1.0, rpm / max_rpm))
         for i in range(count):
             pos = (i + 1) / count

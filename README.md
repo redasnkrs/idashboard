@@ -188,7 +188,13 @@ Dans `/settings` → **Jeux** → **Ambient lights** :
 - **Régime** : barre verte → jaune → rouge selon `r / rm`.
 - **Drapeaux** : jaune, bleu, rouge, damier… selon la clé `flag`.
 - **Frein** : bandeau rouge quand le frein est fort.
+- **Sync écran** : reprend les couleurs de l’écran principal, en dégradé
+  horizontal ou en bords gauche/droite.
 - **Tests** : gauche, droite, régime, drapeau.
+
+La sync écran capture le moniteur principal. Si ça consomme trop, baisse le
+nombre de FPS dans la carte. Les clignotants, drapeaux et frein restent
+prioritaires sur la sync.
 
 Chaque effet a sa case : tu peux garder seulement les clignotants, seulement
 le régime, etc.

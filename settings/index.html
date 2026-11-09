@@ -233,7 +233,8 @@ html { touch-action: manipulation; }
       </div>
       <p class="hint" id="ambientHint">
         Ferme DX Light avant : un seul programme peut contrôler le bandeau.
-        Clignotants gauche/droite, régime, drapeaux et frein.
+        Clignotants gauche/droite, régime, drapeaux, frein, ou sync écran
+        comme DX Light.
       </p>
       <div class="games" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:12px">
         <label class="field"><span>LED (0 = auto)</span><input id="ambientCount" type="number" min="0" max="512" step="1"></label>
@@ -242,6 +243,11 @@ html { touch-action: manipulation; }
         <label class="field"><span>FPS</span><input id="ambientFps" type="number" min="5" max="30" step="1"></label>
       </div>
       <div class="actions" style="margin-top:10px;gap:14px;flex-wrap:wrap">
+        <label class="checks"><input type="checkbox" id="ambientSync"> Sync écran</label>
+        <select id="ambientSyncMode" style="max-width:190px">
+          <option value="gradient">Dégradé horizontal</option>
+          <option value="sides">Bords gauche/droite</option>
+        </select>
         <label class="checks"><input type="checkbox" id="ambientTurns"> Clignotants</label>
         <label class="checks"><input type="checkbox" id="ambientRpm"> Régime</label>
         <label class="checks"><input type="checkbox" id="ambientFlags"> Drapeaux</label>
@@ -734,6 +740,8 @@ html { touch-action: manipulation; }
       split: Number($('ambientSplit').value || 50) / 100,
       brightness: Number($('ambientBrightness').value || 100) / 100,
       fps: Number($('ambientFps').value || 20),
+      sync: $('ambientSync').checked,
+      sync_mode: $('ambientSyncMode').value,
       turns: $('ambientTurns').checked,
       rpm: $('ambientRpm').checked,
       flags: $('ambientFlags').checked,
@@ -751,6 +759,8 @@ html { touch-action: manipulation; }
       if (document.activeElement !== $('ambientBrightness')) $('ambientBrightness').value = Math.round((cfg.brightness ?? 1) * 100);
       if (document.activeElement !== $('ambientFps')) $('ambientFps').value = cfg.fps ?? 20;
       $('ambientEnabled').checked = !!cfg.enabled;
+      $('ambientSync').checked = !!cfg.sync;
+      $('ambientSyncMode').value = cfg.sync_mode || 'gradient';
       $('ambientTurns').checked = cfg.turns !== false;
       $('ambientRpm').checked = cfg.rpm !== false;
       $('ambientFlags').checked = cfg.flags !== false;
@@ -1188,7 +1198,7 @@ html { touch-action: manipulation; }
     $('ets2MapBtn').addEventListener('click', installMap);
     $('genBtn').addEventListener('click', startGen);
     for (const id of ['ambientEnabled', 'ambientCount', 'ambientSplit',
-      'ambientBrightness', 'ambientFps', 'ambientTurns', 'ambientRpm', 'ambientFlags',
+      'ambientBrightness', 'ambientFps', 'ambientSync', 'ambientSyncMode', 'ambientTurns', 'ambientRpm', 'ambientFlags',
       'ambientBrake', 'ambientSwap']) {
       $(id).addEventListener('change', saveAmbient);
     }

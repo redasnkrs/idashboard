@@ -208,6 +208,8 @@ _AMBIENT_DEFAULTS = {
     "flags": True,
     "brake": False,
     "turns": True,
+    "sync": False,
+    "sync_mode": "gradient",
     "fps": 20,
 }
 
@@ -241,9 +243,11 @@ def ambient():
         pass
     out["turn_color"] = _hex_color(raw.get("turn_color"), out["turn_color"])
     out["idle_color"] = _hex_color(raw.get("idle_color"), out["idle_color"])
-    for key in ("rpm", "flags", "brake", "turns"):
+    for key in ("rpm", "flags", "brake", "turns", "sync"):
         if key in raw:
             out[key] = bool(raw.get(key))
+    if raw.get("sync_mode") in ("gradient", "sides"):
+        out["sync_mode"] = raw.get("sync_mode")
     try:
         out["fps"] = max(5, min(30, int(raw.get("fps", 20))))
     except (TypeError, ValueError):
@@ -281,9 +285,11 @@ def ambient_from(raw):
         pass
     out["turn_color"] = _hex_color(raw.get("turn_color"), out["turn_color"])
     out["idle_color"] = _hex_color(raw.get("idle_color"), out["idle_color"])
-    for key in ("rpm", "flags", "brake", "turns"):
+    for key in ("rpm", "flags", "brake", "turns", "sync"):
         if key in raw:
             out[key] = bool(raw.get(key))
+    if raw.get("sync_mode") in ("gradient", "sides"):
+        out["sync_mode"] = raw.get("sync_mode")
     try:
         out["fps"] = max(5, min(30, int(raw.get("fps", 20))))
     except (TypeError, ValueError):
