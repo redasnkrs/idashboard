@@ -27,7 +27,7 @@ import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
-from core import (app_control, app_settings, catalog, ets2_map, game,
+from core import (app_control, app_settings, catalog, ets2_extract, ets2_map, game,
                   health, launcher, media, pump, screens, scs_plugin, simhub,
                   simhub_faithful, startup, studio, themes, updater)
 from core.config import (DEFAULT_DASHBOARD, HOME_FILE, PORT, SETTINGS_FILE,
@@ -137,6 +137,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send(json.dumps(body).encode(), "application/json")
         elif path == "/api/ets2/map":
             self._send(json.dumps(ets2_map.info()).encode(),
+                       "application/json")
+        elif path == "/api/ets2/map/generate":
+            self._send(json.dumps(ets2_extract.status()).encode(),
                        "application/json")
         elif path == "/api/ets2/vector":
             data = ets2_map.vector_bytes()
@@ -265,6 +268,18 @@ class Handler(BaseHTTPRequestHandler):
             self._save_startup()
         elif path == "/api/ets2/map/download":
             self._send(json.dumps({"ok": ets2_map.start_download()}).encode(),
+                       "application/json")
+        elif path == "/api/ets2/map/generate":
+            try:
+                payload = self._read_json()
+                info = ets2_extract.start(
+                    payload.get("game_dir"), payload.get("mod"),
+                    payload.get("max_zoom", 8))
+            except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
+                           "application/json", 400)
+                return
+            self._send(json.dumps({"ok": True, "generate": info}).encode(),
                        "application/json")
         elif path == "/api/ets2/plugin/install":
             try:

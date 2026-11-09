@@ -358,6 +358,12 @@
     }
 
     function mapBounds() {
+      if (mapInfo && mapInfo.tile && mapInfo.promods) {
+        return { x1: mapInfo.tile.x1, y1: mapInfo.tile.y1,
+          x2: mapInfo.tile.x2, y2: mapInfo.tile.y2,
+          minZoom: mapInfo.tile.minZoom || 0,
+          maxZoom: mapInfo.tile.maxZoom || 8, vector: false };
+      }
       if (mapInfo && mapInfo.vector && mapInfo.vector.bounds) {
         const b = mapInfo.vector.bounds;
         return { x1: b[0], y1: b[1], x2: b[2], y2: b[3],

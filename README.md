@@ -153,6 +153,21 @@ plugin open-source `scs-sdk-plugin` : `/settings` → Jeux → **Installer le
 plugin**. Le DLL va dans `bin/win_x64/plugins` ; relance ensuite ETS2.
 Si ETS2 n’est pas détecté, renseigne son chemin dans la même page.
 
+### Meilleur rendu : générer les tuiles ProMods complètes
+
+Pour avoir exactement le rendu du jeu (noms de villes, logos, carrefours et
+rues intérieures), idash inclut maintenant un générateur `ts-map` :
+
+1. Ouvre `/settings` → **Jeux**.
+2. Vérifie le **Dossier ETS2** (`base.scs` doit être dedans) et le fichier
+   **Mod ProMods (.scs)**. idash les détecte automatiquement.
+3. Clique **Générer**. La génération prend 10 à 20 min et écrit
+   `custom/maps/tsmap-promods.zip`.
+4. Relance le dashboard : idash utilise automatiquement ces tuiles.
+
+Cette carte est prioritaire sur la carte vectorielle. Elle est générée
+localement depuis tes fichiers, rien n’est envoyé sur Internet.
+
 ### Carte ETS2 vectorielle (ProMods)
 
 La carte du Route Advisor est une **carte vectorielle ProMods** : idash dessine

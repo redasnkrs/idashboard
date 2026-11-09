@@ -595,6 +595,14 @@ class ServerTest(unittest.TestCase):
         self.assertIn("vector", info)
         self.assertTrue(info["vector"]["roads"] > 0)
 
+    def test_ets2_map_generate_status(self):
+        status, _, body = self.get("/api/ets2/map/generate")
+        self.assertEqual(200, status)
+        info = json.loads(body)
+        self.assertIn("available", info)
+        self.assertIn("game_dir", info)
+        self.assertIn("mods", info)
+
     def test_settings_page(self):
         status, ctype, body = self.get("/settings")
         self.assertEqual(200, status)

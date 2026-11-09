@@ -100,6 +100,22 @@ def vector_bytes():
         return None
 
 
+def reset():
+    global _zip, _zip_path, _info, _tile_size, _vector_info, _vector_path
+    with _lock:
+        try:
+            if _zip is not None:
+                _zip.close()
+        except OSError:
+            pass
+        _zip = None
+        _zip_path = ""
+        _info = None
+        _tile_size = None
+        _vector_info = None
+        _vector_path = ""
+
+
 def _open_zip():
     global _zip, _zip_path
     path = find_zip()
@@ -152,6 +168,7 @@ def info():
     status = {"ok": archive is not None or vector is not None,
               "path": str(path) if path else "",
               "name": path.name if path else "",
+              "promods": bool(path and path.name == PROMODS_NAME),
               "tile_size": _tile_size or 256,
               "downloading": _download["running"],
               "progress": _download["progress"],

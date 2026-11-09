@@ -4,6 +4,21 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.8.2] - 2026-11-09
+
+### Ajouté
+- Générateur **ts-map intégré** : lit `base.scs`, les DLC et ProMods, puis
+  produit un pack de tuiles 512 px avec noms de villes, logos et vraies rues
+  de carrefours.
+- Bouton `/settings` → Jeux → **Générer** avec détection automatique du
+  dossier ETS2 et du fichier ProMods.
+- Progression de génération et activation automatique du pack
+  `custom/maps/tsmap-promods.zip`.
+
+### Modifié
+- La carte utilise en priorité les tuiles ProMods fidèles ; la carte
+  vectorielle reste le fallback immédiat.
+
 ## [0.8.1] - 2026-11-09
 
 ### Ajouté

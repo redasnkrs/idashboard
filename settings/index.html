@@ -200,6 +200,24 @@ html { touch-action: manipulation; }
     <div class="card" style="max-width:760px;margin-top:18px">
       <div class="row-between">
         <div>
+          <div class="label">Carte ProMods fidèle (ts-map)</div>
+          <div class="big" id="genStatus">…</div>
+        </div>
+        <button id="genBtn" class="ghost" type="button">Générer</button>
+      </div>
+      <p class="hint" id="genHint">
+        Génère les tuiles complètes depuis <code>base.scs</code> + ProMods :
+        noms de villes, logos et vraies rues de carrefours. Compte 10 à 20 min.
+      </p>
+      <div class="games" style="grid-template-columns:1fr 1fr;margin-top:12px">
+        <label class="field"><span>Dossier ETS2</span><input id="genGame" type="text" placeholder="D:\SteamLibrary\steamapps\common\Euro Truck Simulator 2"></label>
+        <label class="field"><span>Mod ProMods (.scs)</span><input id="genMod" type="text" placeholder="...\mod\ProMods EU Map v2.84.scs"></label>
+      </div>
+      <div class="status" id="genProgress"></div>
+    </div>
+    <div class="card" style="max-width:760px;margin-top:18px">
+      <div class="row-between">
+        <div>
           <div class="label">Plugin télémétrie SCS SDK</div>
           <div class="big" id="scsPluginStatus">…</div>
         </div>
@@ -670,11 +688,17 @@ html { touch-action: manipulation; }
       const info = await fetch('/api/ets2/map', { cache: 'no-store' })
         .then(r => r.json());
       const vector = info.vector;
+      const promods = info.promods && info.tile;
       const ok = !!info.ok;
-      $('ets2MapStatus').textContent = vector ? 'ProMods vectorielle prête' :
+      $('ets2MapStatus').textContent = promods ? 'ProMods fidèle prête' :
+        vector ? 'ProMods vectorielle prête' :
         ok ? 'Tuiles installées' :
         info.downloading ? 'Téléchargement…' : 'Non installée';
-      if (vector) {
+      if (promods) {
+        $('ets2MapBtn').style.display = 'none';
+        $('ets2MapHint').textContent = 'Tuiles ts-map 512 px, zoom max ' +
+          info.tile.maxZoom + ', avec noms de villes et carrefours.';
+      } else if (vector) {
         $('ets2MapBtn').style.display = 'none';
         $('ets2MapHint').textContent =
           vector.roads + ' routes, ' + vector.cities + ' villes, ' +
@@ -696,6 +720,53 @@ html { touch-action: manipulation; }
     } catch (e) {
       $('ets2MapStatus').textContent = 'Indisponible';
     }
+  }
+  let genTimer = 0;
+  async function loadGenInfo() {
+    try {
+      const info = await fetch('/api/ets2/map/generate', { cache: 'no-store' })
+        .then(r => r.json());
+      if (document.activeElement !== $('genGame') && info.game_dir) {
+        $('genGame').value = info.game_dir;
+      }
+      if (document.activeElement !== $('genMod') && info.mods && info.mods[0]) {
+        $('genMod').value = info.mods[0];
+      }
+      $('genBtn').disabled = info.running || !info.available;
+      $('genStatus').textContent = !info.available ? 'Windows uniquement' :
+        info.running ? 'Génération…' :
+        info.target_exists ? 'Carte ProMods installée' : 'Prête à générer';
+      $('genHint').textContent = info.error ? info.error :
+        info.running ? (info.message || 'Génération en cours…') :
+        info.available ? 'Génère les tuiles complètes depuis base.scs + ProMods. Compte 10 à 20 min.' :
+        'Le générateur ts-map est inclus dans la version Windows.';
+      $('genProgress').textContent = info.running
+        ? Math.round((info.progress || 0) * 100) + '% — ' + (info.message || '')
+        : (info.error || '');
+      if (info.running) {
+        clearTimeout(genTimer);
+        genTimer = setTimeout(loadGenInfo, 1500);
+      }
+    } catch (e) {
+      $('genStatus').textContent = 'Indisponible';
+    }
+  }
+  async function startGen() {
+    const payload = {
+      game_dir: $('genGame').value.trim(),
+      mod: $('genMod').value.trim(),
+      max_zoom: 8,
+    };
+    try {
+      const r = await fetch('/api/ets2/map/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) throw new Error(data.error || 'échec');
+      toast('Génération de la carte ProMods lancée.');
+      loadGenInfo();
+    } catch (e) { toast('Échec : ' + e.message, true); }
   }
   async function installMap() {
     const info = await fetch('/api/ets2/map', { cache: 'no-store' })
@@ -986,6 +1057,7 @@ html { touch-action: manipulation; }
     $('screenTest').addEventListener('click', testScreen);
     $('saveDefault').addEventListener('click', saveDefault);
     $('ets2MapBtn').addEventListener('click', installMap);
+    $('genBtn').addEventListener('click', startGen);
     $('scsPluginBtn').addEventListener('click', installPlugin);
     $('keepScreenToggle').addEventListener('change', saveKeepScreen);
     $('openOnStartToggle').addEventListener('change', saveOpenOnStart);
@@ -1006,6 +1078,7 @@ html { touch-action: manipulation; }
     await loadScreens();
     await loadGames();
     loadMapInfo();
+    loadGenInfo();
     loadPluginInfo();
     const requested = new URLSearchParams(location.search).get('dashboard');
     const wanted = dashboards.find(d => d.spec === requested ||
