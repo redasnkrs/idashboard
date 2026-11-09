@@ -219,6 +219,7 @@ class SimHubSource(Source):
             "clu": _fraction(_get(idx, "Clutch", "NewData.Clutch")),
             "hb": _fraction(_get(idx, "Handbrake", "NewData.Handbrake")),
             "fuel": max(0.0, fuel_raw), "fp": fuel_pct,
+            "fuel_capacity": fuel_cap if fuel_cap > 0 else None,
             "fpl": _num(_get(idx, "Fuel_LitersPerLap",
                              "FuelLiterPerLap")),
             "laps": _num(_get(idx, "Fuel_RemainingLaps",

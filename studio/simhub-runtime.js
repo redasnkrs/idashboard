@@ -366,13 +366,19 @@
       }
       const t = mapInfo.tile;
       const speed = Math.abs(Number(state.v) || 0);
-      let z = speed > 120 ? 5 : speed > 60 ? 6 : 7;
+      let z = speed > 110 ? 5 : 6;
       z = Math.max(t.minZoom || 0, Math.min(t.maxZoom || 8, z));
       const span = 256 * Math.pow(2, z);
       const worldW = (t.x2 - t.x1) || 1;
       const worldH = (t.y2 - t.y1) || 1;
-      const mx = state.map_x == null ? (t.x1 + t.x2) / 2 : state.map_x;
-      const my = state.map_y == null ? (t.y1 + t.y2) / 2 : state.map_y;
+      let mx = state.map_x == null ? (t.x1 + t.x2) / 2 : Number(state.map_x);
+      let my = state.map_y == null ? (t.y1 + t.y2) / 2 : Number(state.map_y);
+      if (!isFinite(mx) || !isFinite(my) ||
+          mx < t.x1 || mx > t.x2 || my < t.y1 || my > t.y2) {
+        mx = (t.x1 + t.x2) / 2;
+        my = (t.y1 + t.y2) / 2;
+        state = Object.assign({}, state, { map_x: null, map_y: null });
+      }
       const px = (mx - t.x1) / worldW * span;
       const py = (t.y2 - my) / worldH * span;
       const left = px - W / 2;

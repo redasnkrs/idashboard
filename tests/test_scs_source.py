@@ -32,6 +32,7 @@ class ScsSourceTest(unittest.TestCase):
         self.assertEqual(97, dash["wear_truck"])
         self.assertEqual(93, dash["wear_trailer"])
         self.assertEqual(91, dash["wear_cargo"])
+        self.assertEqual(700, dash["fuel_capacity"])
         self.assertEqual(853.4857, dash["map_x"])
         self.assertEqual(5416.1333, dash["map_y"])
         self.assertAlmostEqual(11.459, dash["map_heading"], places=3)

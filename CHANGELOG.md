@@ -4,6 +4,15 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.7.5] - 2026-11-09
+
+### Corrigé
+- Carte ETS2 : si la position reçue est invalide ou hors des limites de la
+  carte, idash recentre la vue au lieu d’afficher une zone grise.
+- Zoom de carte plus robuste autour du camion.
+- Carburant : fallback lorsque la capacité du réservoir n’est pas fournie par
+  le plugin ; la capacité est aussi exposée dans `/api/dash` pour diagnostic.
+
 ## [0.7.4] - 2026-11-09
 
 ### Ajouté

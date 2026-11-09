@@ -62,7 +62,12 @@ def map_data(data):
     speed = _num(data.get("speed"))
     fuel = _num(data.get("fuel"))
     capacity = _num(data.get("fuelCapacity"))
-    fuel_pct = fuel / capacity if capacity > 0 else 0.0
+    if capacity > 0:
+        fuel_pct = fuel / capacity
+    elif 0 < fuel <= 100:
+        fuel_pct = fuel / 100.0
+    else:
+        fuel_pct = 0.0
     speed_limit = _num(data.get("speedLimit"))
     if 0 < speed_limit <= 60:
         speed_limit *= 3.6
@@ -96,6 +101,7 @@ def map_data(data):
         "clu": _num(data.get("userClutch")),
         "hb": 1.0 if _bool(data.get("parkBrake")) else 0.0,
         "fuel": max(0.0, fuel), "fp": max(0.0, min(1.0, fuel_pct)),
+        "fuel_capacity": capacity if capacity > 0 else None,
         "fpl": 0.0, "laps": 0.0,
         "low": _bool(data.get("lightsBeamLow")),
         "high": _bool(data.get("lightsBeamHigh")),

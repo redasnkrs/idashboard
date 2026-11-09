@@ -74,6 +74,7 @@ DASH_SCHEMA = {
     "map_x": "number|null",
     "map_y": "number|null",
     "map_heading": "number|null",
+    "fuel_capacity": "number|null",
 }
 
 
