@@ -136,7 +136,7 @@ def map_data(data):
         "wear_cargo": wear_cargo,
         "speed_limit": speed_limit if speed_limit > 0 else None,
         "map_x": _num(data.get("coordinateX")),
-        "map_y": _num(data.get("coordinateY")),
+        "map_y": _num(data.get("coordinateZ", data.get("coordinateY"))),
         "map_heading": heading,
         "game": game, "game_id": game_id,
     }

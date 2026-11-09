@@ -12,7 +12,8 @@ DATA = {
     "wearChassis": .97, "trailer": [
         {"attached": True, "wearChassis": .93, "cargoDamage": .91}],
     "truckBrand": "Scania", "truckName": "R500",
-    "coordinateX": 853.4857, "coordinateY": 5416.1333,
+    "coordinateX": 853.4857, "coordinateY": 11.2,
+    "coordinateZ": 5416.1333,
     "rotationY": 0.2, "userThrottle": .4, "userBrake": 0,
     "userClutch": 0, "waterTemperature": 89, "oilTemperature": 104,
     "oilPressure": 4.2, "lightsBeamLow": True,

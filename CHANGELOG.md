@@ -4,6 +4,17 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.7.6] - 2026-11-09
+
+### Corrigé
+- Carte ETS2 : utilisation de la coordonnée `coordinateZ` (axe nord-sud) et
+  inversion correcte de l’axe Y des tuiles. La position correspond maintenant
+  à la ville réelle (testé à Calais).
+- Carburant : la propriété SimHub `FuelPercent` est maintenant reconnue, donc
+  la jauge se remplit correctement.
+- Carte : redessin régulier pendant le chargement des tuiles pour éviter une
+  zone vide au premier affichage.
+
 ## [0.7.5] - 2026-11-09
 
 ### Corrigé

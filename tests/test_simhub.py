@@ -146,6 +146,9 @@ class SimHubImportTest(unittest.TestCase):
             "'AssettoCorsa',90,[DataCorePlugin.GameData.NewData."
             "OilTemperature])")
         self.assertEqual("ot", oil[0])
+        fuel = simhub._formula_field(
+            "[DataCorePlugin.GameData.NewData.FuelPercent]")
+        self.assertEqual("fp", fuel[0])
         self.assertIsNone(simhub._formula_field(
             "if([DataCorePlugin.Computed.Fuel_RemainingLaps]<2,"
             "[DataCorePlugin.GameData.NewData.Fuel],0)"))

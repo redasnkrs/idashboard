@@ -51,6 +51,7 @@ _PROPERTIES = {
     "fuel_lastlapconsumption": ("fpl", "float2", "l"),
     "fuel_remaininglaps": ("laps", "float1", "none"),
     "fuel_percent": ("fp", "float2", "percent"),
+    "fuelpercent": ("fp", "float2", "percent"),
     "tclevel": ("tcl", "int", "none"),
     "abslevel": ("absl", "int", "none"),
     "brakebias": ("bb", "float1", "none"),

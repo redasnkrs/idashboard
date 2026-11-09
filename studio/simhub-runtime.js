@@ -380,7 +380,7 @@
         state = Object.assign({}, state, { map_x: null, map_y: null });
       }
       const px = (mx - t.x1) / worldW * span;
-      const py = (t.y2 - my) / worldH * span;
+      const py = (my - t.y1) / worldH * span;
       const left = px - W / 2;
       const top = py - H / 2;
       const x0 = Math.floor(left / 256), x1 = Math.floor((left + W) / 256);
@@ -434,6 +434,7 @@
       mapInfo = info;
       schedule();
     });
+    setInterval(schedule, 500);
     updates.push(update);
     update({});
   }
