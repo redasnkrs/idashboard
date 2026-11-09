@@ -4,6 +4,13 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.7.3] - 2026-11-09
+
+### Corrigé
+- Studio : la sauvegarde d’un dashboard SimHub fidèle contenant une carte ne
+  renvoie plus « SVG non autorisé ». Le `foreignObject` de la carte est retiré
+  de l’aperçu SVG, pas du dashboard.
+
 ## [0.7.2] - 2026-11-09
 
 ### Ajouté

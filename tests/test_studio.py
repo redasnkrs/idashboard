@@ -89,6 +89,18 @@ class StudioTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             studio.save_icon({"name": "Bad", "data": data})
 
+    def test_preview_strips_foreign_object(self):
+        data = self.payload()
+        data["preview_svg"] = (
+            '<svg xmlns="http://www.w3.org/2000/svg">'
+            '<foreignObject x="0" y="0" width="10" height="10">'
+            '<div xmlns="http://www.w3.org/1999/xhtml">map</div>'
+            '</foreignObject><rect width="10" height="10"/></svg>')
+        layout = studio.save_layout(data)
+        preview = studio.preview_path(layout["id"]).read_text()
+        self.assertNotIn("foreignObject", preview)
+        self.assertIn("<rect", preview)
+
     def test_preview_rejects_script(self):
         data = self.payload()
         data["preview_svg"] = ('<svg xmlns="http://www.w3.org/2000/svg">'

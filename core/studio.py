@@ -465,8 +465,11 @@ def catalog_entry(layout):
 def _sanitize_svg_text(text):
     if "<svg" not in text[:500].lower():
         raise ValueError("SVG invalide")
+    text = re.sub(r"<foreignObject\b[^>]*>.*?</foreignObject\s*>", "",
+                  text, flags=re.I | re.S)
+    text = re.sub(r"<foreignObject\b[^>]*/\s*>", "", text, flags=re.I)
     lowered = text.lower()
-    for bad in ("<script", "<foreignobject", "<iframe", "<object", "<embed",
+    for bad in ("<script", "<iframe", "<object", "<embed",
                 "javascript:"):
         if bad in lowered:
             raise ValueError("SVG non autorise")
