@@ -93,7 +93,7 @@ def _write(packet):
         return False
     for i, chunk in enumerate(_chunks(packet)):
         if i:
-            time.sleep(0.001)
+            time.sleep(0.003)
         try:
             if _serial is not None:
                 _serial.write(chunk)
@@ -133,16 +133,19 @@ def _read_info():
     if not _write(_rb(ACTION_READ_INFO)):
         return
     time.sleep(0.2)
-    try:
-        if _serial is not None:
-            data = list(_serial.read(256))
-        else:
-            data = _device.read(256, 500)
-    except Exception:
-        data = []
-    if data and len(data) > 20 and data[20] > 0:
-        _count = int(data[20])
-        log.info("bandeau ambient: %s LED", _count)
+    for attempt in range(3):
+        try:
+            if _serial is not None:
+                data = list(_serial.read(256))
+            else:
+                data = _device.read(256, 500)
+        except Exception:
+            data = []
+        if data and len(data) > 20 and data[20] > 0:
+            _count = min(254, int(data[20]))
+            log.info("bandeau ambient: %s LED", _count)
+            break
+        time.sleep(0.1)
     _error = ""
 
 
@@ -186,9 +189,9 @@ def _connect():
     if HID_AVAILABLE:
         candidates = _hid_candidates()
         preferred = [d for d in candidates
-                     if d.get("product_id") == PID or
-                     any(word in (d.get("product_string") or "").lower()
-                         for word in ("light", "robobloq", "dx"))]
+                     if (d.get("usage_page") or 0) >= 0xFF00 or
+                     d.get("interface_number") == 0 or
+                     d.get("product_id") == PID]
         ordered = preferred + [d for d in candidates if d not in preferred]
         for info in ordered:
             try:

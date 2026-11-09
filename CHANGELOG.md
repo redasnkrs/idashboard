@@ -4,6 +4,14 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.9.5] - 2026-11-09
+
+### Corrigé
+- Détection du bandeau ROBOBLOQ : priorité à l’interface HID vendor-specific
+  (usage page `0xFF00`) / interface 0, au lieu de l’interface clavier.
+- Espacement des paquets HID porté à 3 ms pour éviter que le microcontrôleur
+  du bandeau ne se bloque.
+
 ## [0.9.4] - 2026-11-09
 
 ### Corrigé
