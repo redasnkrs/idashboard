@@ -4,6 +4,12 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.9.2] - 2026-11-09
+
+### Corrigé
+- Les réglages Ambient lights (cases et nombres) ne se réinitialisent plus
+  instantanément : `app.json` recharge maintenant la section `ambient`.
+
 ## [0.9.1] - 2026-11-09
 
 ### Ajouté

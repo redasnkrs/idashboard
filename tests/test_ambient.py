@@ -26,6 +26,10 @@ class AmbientTest(unittest.TestCase):
         self.assertAlmostEqual(0.4, saved["split"])
         self.assertFalse(saved["rpm"])
         self.assertTrue(saved["flags"])
+        loaded = app_settings.ambient()
+        self.assertTrue(loaded["enabled"])
+        self.assertEqual(60, loaded["led_count"])
+        self.assertAlmostEqual(0.4, loaded["split"])
 
 
 if __name__ == "__main__":

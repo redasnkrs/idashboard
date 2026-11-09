@@ -46,6 +46,9 @@ def load():
             state["keep_screen"] = bool(saved.get("keep_screen"))
         if "open_on_start" in saved:
             state["open_on_start"] = bool(saved.get("open_on_start"))
+        ambient = saved.get("ambient")
+        if isinstance(ambient, dict):
+            state["ambient"] = ambient
         last = saved.get("last_dashboard")
         if isinstance(last, str) and _SAFE_DASH.match(last):
             state["last_dashboard"] = last
