@@ -4,6 +4,15 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.8.3] - 2026-11-09
+
+### Modifié
+- Génération ts-map : choix de qualité **0-6 / 0-7 / 0-8**.
+  0-7 est le réglage recommandé pour le 7" (beaucoup plus rapide et léger
+  que 0-8).
+- Progression réelle **tuile par tuile** au lieu de sauter de 89 % à 100 %.
+- Le générateur affiche « Génération des tuiles… » pendant le zoom en cours.
+
 ## [0.8.2] - 2026-11-09
 
 ### Ajouté

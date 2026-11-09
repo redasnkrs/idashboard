@@ -206,12 +206,18 @@ html { touch-action: manipulation; }
         <button id="genBtn" class="ghost" type="button">Générer</button>
       </div>
       <p class="hint" id="genHint">
-        Génère les tuiles complètes depuis <code>base.scs</code> + ProMods :
-        noms de villes, logos et vraies rues de carrefours. Compte 10 à 20 min.
+        Génère les tuiles complètes depuis <code>base.scs</code> + ProMods.
+        Le mode 0-7 est recommandé pour le 7" (rapide, net). Le 0-8 est plus long
+        et peut prendre plusieurs Go.
       </p>
-      <div class="games" style="grid-template-columns:1fr 1fr;margin-top:12px">
+      <div class="games" style="grid-template-columns:1fr 1fr 190px;margin-top:12px">
         <label class="field"><span>Dossier ETS2</span><input id="genGame" type="text" placeholder="D:\SteamLibrary\steamapps\common\Euro Truck Simulator 2"></label>
         <label class="field"><span>Mod ProMods (.scs)</span><input id="genMod" type="text" placeholder="...\mod\ProMods EU Map v2.84.scs"></label>
+        <label class="field"><span>Qualité</span><select id="genQuality">
+          <option value="6">Rapide (0-6)</option>
+          <option value="7" selected>Recommandé (0-7)</option>
+          <option value="8">Maximum (0-8)</option>
+        </select></label>
       </div>
       <div class="status" id="genProgress"></div>
     </div>
@@ -732,13 +738,16 @@ html { touch-action: manipulation; }
       if (document.activeElement !== $('genMod') && info.mods && info.mods[0]) {
         $('genMod').value = info.mods[0];
       }
+      if (info.running && info.max_zoom != null) {
+        $('genQuality').value = String(info.max_zoom);
+      }
       $('genBtn').disabled = info.running || !info.available;
       $('genStatus').textContent = !info.available ? 'Windows uniquement' :
         info.running ? 'Génération…' :
         info.target_exists ? 'Carte ProMods installée' : 'Prête à générer';
       $('genHint').textContent = info.error ? info.error :
         info.running ? (info.message || 'Génération en cours…') :
-        info.available ? 'Génère les tuiles complètes depuis base.scs + ProMods. Compte 10 à 20 min.' :
+        info.available ? '0-7 recommandé pour le 7" ; 0-8 = plus long et plusieurs Go.' :
         'Le générateur ts-map est inclus dans la version Windows.';
       $('genProgress').textContent = info.running
         ? Math.round((info.progress || 0) * 100) + '% — ' + (info.message || '')
@@ -755,7 +764,7 @@ html { touch-action: manipulation; }
     const payload = {
       game_dir: $('genGame').value.trim(),
       mod: $('genMod').value.trim(),
-      max_zoom: 8,
+      max_zoom: Number($('genQuality').value || 7),
     };
     try {
       const r = await fetch('/api/ets2/map/generate', {

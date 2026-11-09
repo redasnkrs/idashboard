@@ -24,7 +24,7 @@ EXE = RESOURCE_DIR / "assets" / "tsmap" / "TsMap.Cli.exe"
 TARGET = ets2_map.MAP_DIR / "tsmap-promods.zip"
 _lock = threading.Lock()
 _state = {"running": False, "progress": 0.0, "error": "", "message": "",
-          "done": False, "started": 0.0}
+          "done": False, "started": 0.0, "max_zoom": 7}
 
 
 def _game_candidates():
@@ -86,6 +86,7 @@ def status():
         "error": _state["error"],
         "done": _state["done"],
         "started": _state["started"],
+        "max_zoom": _state["max_zoom"],
     }
 
 
@@ -109,7 +110,8 @@ def _worker(game_dir, mod_path, max_zoom):
     try:
         _state.update({"running": True, "progress": 0.0, "error": "",
                        "message": "Lecture des fichiers du jeu…",
-                       "done": False, "started": time.time()})
+                       "done": False, "started": time.time(),
+                       "max_zoom": max_zoom})
         cmd = [str(EXE), "--game", str(game_dir), "--mod", str(mod_path),
                "--out", str(temp), "--min", "0", "--max", str(max_zoom),
                "--tile", "512"]
@@ -125,13 +127,22 @@ def _worker(game_dir, mod_path, max_zoom):
             if not line:
                 continue
             log.info("ts-map: %s", line)
-            _state["message"] = line[-180:]
-            if line.startswith("Zoom ") and "termin" in line:
+            if line.startswith("Progress "):
+                _state["message"] = "Génération des tuiles…"
                 try:
-                    zoom = int(line.split()[1])
-                    _state["progress"] = min(0.99, (zoom + 1) / (max_zoom + 1))
+                    parts = line.split()
+                    done, total = int(parts[1]), int(parts[2])
+                    _state["progress"] = min(0.99, done / max(1, total))
                 except (ValueError, IndexError):
                     pass
+            else:
+                _state["message"] = line[-180:]
+                if line.startswith("Zoom ") and "termin" in line:
+                    try:
+                        zoom = int(line.split()[1])
+                        _state["progress"] = min(0.99, (zoom + 1) / (max_zoom + 1))
+                    except (ValueError, IndexError):
+                        pass
         code = proc.wait()
         if code != 0:
             raise RuntimeError("ts-map a échoué (code %s)" % code)
@@ -151,7 +162,7 @@ def _worker(game_dir, mod_path, max_zoom):
         shutil.rmtree(temp, ignore_errors=True)
 
 
-def start(game_dir=None, mod_path=None, max_zoom=8):
+def start(game_dir=None, mod_path=None, max_zoom=7):
     if _state["running"]:
         raise ValueError("génération déjà en cours")
     game = Path(game_dir) if game_dir else find_game_dir()

@@ -161,12 +161,18 @@ rues intérieures), idash inclut maintenant un générateur `ts-map` :
 1. Ouvre `/settings` → **Jeux**.
 2. Vérifie le **Dossier ETS2** (`base.scs` doit être dedans) et le fichier
    **Mod ProMods (.scs)**. idash les détecte automatiquement.
-3. Clique **Générer**. La génération prend 10 à 20 min et écrit
+3. Choisis la qualité : **0-7 recommandé** pour le 7" (rapide et net).
+   Le 0-8 est plus long et peut prendre plusieurs Go.
+4. Clique **Générer**. La progression s’affiche tuile par tuile.
+5. Relance le dashboard : idash utilise automatiquement
    `custom/maps/tsmap-promods.zip`.
-4. Relance le dashboard : idash utilise automatiquement ces tuiles.
 
 Cette carte est prioritaire sur la carte vectorielle. Elle est générée
 localement depuis tes fichiers, rien n’est envoyé sur Internet.
+
+Ordre de grandeur : 0-7 en 512 px prend environ 0,5 à 1,5 Go ; 0-8 peut
+prendre 2 à 5 Go et beaucoup plus de temps. Pour accélérer, ajoute une
+exclusion Windows Defender pour le dossier `idash\custom\maps`.
 
 ### Carte ETS2 vectorielle (ProMods)
 
