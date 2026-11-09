@@ -62,6 +62,15 @@ DASH_SCHEMA = {
     "mode": "str",
     "game": "str",
     "game_id": "str",
+    "gear_text": "str",
+    "game_time": "str",
+    "speed_unit": "str",
+    "destination": "str",
+    "eta_text": "str",
+    "wear_truck": "number|null",
+    "wear_trailer": "number|null",
+    "wear_cargo": "number|null",
+    "speed_limit": "number|null",
 }
 
 

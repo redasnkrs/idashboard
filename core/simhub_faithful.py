@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from core import studio
+from core.config import SIMHUB_MAP_URL
 from core.simhub import (_BUILTINS, _Importer, _formula, _formula_field,
                          _main_doc, _num, _read_zip, _text, _typename,
                          _values, _weight, _align)
@@ -131,7 +132,43 @@ class _FaithfulImporter(_Importer):
         return {"field": field, "format": fmt, "unit": unit,
                 "scale": scale, "offset": offset}
 
+    def _route_bind(self, item):
+        name = _text(item.get("Name"), 80).strip().lower()
+        expression = _formula(item, "Text").lower()
+        if name == "speedlabel":
+            return {"field": "v", "format": "int", "unit": "none",
+                    "scale": 1, "offset": 0, "suffixField": "speed_unit",
+                    "suffixSpace": True}
+        if name == "gearlabel":
+            return {"field": "gear_text", "format": "text", "unit": "none",
+                    "scale": 1, "offset": 0}
+        if name == "clock":
+            return {"field": "game_time", "format": "text", "unit": "none",
+                    "scale": 1, "offset": 0}
+        if name == "limit":
+            return {"field": "speed_limit", "format": "int", "unit": "none",
+                    "scale": 1, "offset": 0}
+        if "wearchassis" in expression:
+            return {"field": "wear_truck", "format": "int", "unit": "none",
+                    "scale": 1, "offset": 0, "suffix": "%"}
+        if "trailervalues01" in expression:
+            return {"field": "wear_cargo", "format": "int", "unit": "none",
+                    "scale": 1, "offset": 0, "suffix": "%"}
+        if "weartrailer" in expression:
+            return {"field": "wear_trailer", "format": "int", "unit": "none",
+                    "scale": 1, "offset": 0, "suffix": "%"}
+        if name == "destination":
+            if "navigationtime" in expression:
+                return {"field": "eta_text", "format": "text",
+                        "unit": "none", "scale": 1, "offset": 0}
+            return {"field": "destination", "format": "text",
+                    "unit": "none", "scale": 1, "offset": 0}
+        return None
+
     def _text_bind(self, item, kind):
+        route = self._route_bind(item)
+        if route:
+            return route
         bind = self._bind(_formula(item, "Text"))
         if bind:
             return bind
@@ -274,6 +311,9 @@ class _FaithfulImporter(_Importer):
             if not out["src"]:
                 self.skipped += 1
                 return None
+            name_low = _text(item.get("Name"), 80).lower()
+            if "blinker" in name_low:
+                out["visible_bind"] = {"any": ["L", "R"]}
             return out
         if kind == "ToggleImageItem":
             out = self._base_item(item, ctx, "Image")
@@ -282,6 +322,8 @@ class _FaithfulImporter(_Importer):
             return out if out["src"] else None
         if kind in ("DialGaugeItem", "CircularGaugeItem"):
             return self._gauge(item, ctx)
+        if kind == "ETSMap":
+            return self._base_item(item, ctx, "ETSMap")
         if kind == "LinearGaugeItem":
             return None
         if kind in ("GeneratedMapItem", "GeneratedStaticMapItem", "MapItem"):
@@ -327,17 +369,29 @@ class _FaithfulImporter(_Importer):
         if author:
             tags.append(author)
         simhub = {"base": [base_w, base_h], "background": background,
-                  "items": items}
+                  "items": items, "map_url": SIMHUB_MAP_URL}
         encoded = json.dumps(simhub)
         if len(encoded) > MAX_SIMHUB_JSON:
             raise ValueError("dashboard SimHub trop complexe")
+        has_ets_map = False
+
+        def find_map(items):
+            nonlocal has_ets_map
+            for item in items:
+                if item.get("type") == "ETSMap":
+                    has_ets_map = True
+                find_map(item.get("children") or [])
+                find_map((item.get("child") or {}).get("items") or [])
+
+        find_map(items)
         payload = {
             "kind": "simhub",
             "name": name,
             "description": description,
             "category": "custom",
-            "game": "Assetto Corsa Evo",
-            "game_id": "acevo",
+            "game": "Euro Truck Simulator 2" if has_ets_map
+            else "Assetto Corsa Evo",
+            "game_id": "ets2" if has_ets_map else "acevo",
             "order": 10,
             "tags": tags,
             "background": "#000000",

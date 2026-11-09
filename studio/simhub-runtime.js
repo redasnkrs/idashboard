@@ -1,6 +1,7 @@
 /* idash SimHub faithful runtime: dessine le dashboard SimHub d'origine. */
 (() => {
   const NS = "http://www.w3.org/2000/svg";
+  const XHTML = "http://www.w3.org/1999/xhtml";
   let uid = 0;
   const el = (tag, attrs, parent) => {
     const e = document.createElementNS(NS, tag);
@@ -65,24 +66,34 @@
     if (!bind) return fallback == null ? "" : String(fallback);
     const raw = state ? state[bind.field] : null;
     if (raw === undefined || raw === null) return fallback == null ? "" : String(fallback);
-    if (typeof raw === "string") return raw;
-    if (typeof raw === "boolean") return raw ? "ON" : "OFF";
-    let v = Number(raw);
-    if (!isFinite(v)) return fallback == null ? "" : String(fallback);
-    v = v * (bind.scale == null ? 1 : bind.scale) +
-      (bind.offset == null ? 0 : bind.offset);
-    const fmt = bind.format || "int";
-    if (fmt === "time" || fmt === "clock") return timeText(v);
-    if (fmt === "delta") {
-      if (Math.abs(v) >= 60000) return "";
-      return (v < 0 ? "-" : "+") + (Math.abs(v) / 1000).toFixed(3);
+    let text;
+    if (typeof raw === "string") {
+      text = raw;
+    } else if (typeof raw === "boolean") {
+      text = raw ? "ON" : "OFF";
+    } else {
+      let v = Number(raw);
+      if (!isFinite(v)) return fallback == null ? "" : String(fallback);
+      v = v * (bind.scale == null ? 1 : bind.scale) +
+        (bind.offset == null ? 0 : bind.offset);
+      const fmt = bind.format || "int";
+      if (fmt === "time" || fmt === "clock") text = timeText(v);
+      else if (fmt === "delta") {
+        text = Math.abs(v) < 60000
+          ? (v < 0 ? "-" : "+") + (Math.abs(v) / 1000).toFixed(3) : "";
+      } else if (fmt === "gear") {
+        text = v < 0 ? "R" : v === 0 ? "N" : String(Math.round(v));
+      } else if (fmt === "float2") text = Number(v).toFixed(2);
+      else if (fmt === "float1") text = Number(v).toFixed(1);
+      else if (fmt === "percent") text = Math.round(v * 100) + "%";
+      else if (fmt === "text") text = String(raw);
+      else text = String(Math.round(v));
     }
-    if (fmt === "gear") return v < 0 ? "R" : v === 0 ? "N" : String(Math.round(v));
-    if (fmt === "float2") return Number(v).toFixed(2);
-    if (fmt === "float1") return Number(v).toFixed(1);
-    if (fmt === "percent") return Math.round(v * 100) + "%";
-    if (fmt === "text") return String(raw);
-    return String(Math.round(v));
+    let suffix = bind.suffix || "";
+    if (bind.suffixField && state && state[bind.suffixField]) {
+      suffix = (bind.suffixSpace ? " " : "") + state[bind.suffixField];
+    }
+    return text + suffix;
   }
   function axis(h) {
     return h === 1 ? "middle" : h === 2 ? "end" : "start";
@@ -145,12 +156,19 @@
       "stroke-width": border ? border.width : 0,
     }, parent);
   }
-  function drawImage(item, parent) {
-    el("image", {
+  function drawImage(item, parent, updates) {
+    const node = el("image", {
       href: item.src, x: item.left, y: item.top,
       width: item.width, height: item.height,
       preserveAspectRatio: "xMidYMid meet",
     }, parent);
+    if (item.visible_bind) {
+      updates.push(state => {
+        const fields = item.visible_bind.any || [];
+        const on = fields.some(field => !!state[field]);
+        node.style.display = on ? "" : "none";
+      });
+    }
   }
   function parseSize(raw, fallback = [10, 2]) {
     const parts = String(raw || "").split(",").map(Number);
@@ -299,6 +317,32 @@
         "stroke-width": Math.max(1, item.outerStroke * .5 || 2) }, g);
     }
   }
+  function drawETSMap(item, parent, url) {
+    const fo = el("foreignObject", {
+      x: item.left, y: item.top, width: item.width, height: item.height,
+    }, parent);
+    const box = document.createElementNS(XHTML, "div");
+    box.setAttribute("style", "width:100%;height:100%;background:#0b0b0b;" +
+      "overflow:hidden;position:relative");
+    if (!url) {
+      const note = document.createElementNS(XHTML, "div");
+      note.setAttribute("style", "position:absolute;inset:0;display:flex;" +
+        "align-items:center;justify-content:center;color:#8a8272;" +
+        "font:14px sans-serif");
+      note.textContent = "Map SimHub indisponible";
+      box.appendChild(note);
+    } else {
+      const iframe = document.createElementNS(XHTML, "iframe");
+      iframe.setAttribute("src", url);
+      iframe.setAttribute("title", "SimHub ETS2 map");
+      iframe.setAttribute("loading", "eager");
+      iframe.setAttribute("style", "width:100%;height:100%;border:0;" +
+        "background:#0b0b0b;display:block");
+      box.appendChild(iframe);
+    }
+    fo.appendChild(box);
+  }
+
   function drawItem(item, parent, ctx) {
     if (!item || item.visible === false) return;
     const g = el("g", {}, parent);
@@ -319,12 +363,14 @@
     } else if (item.type === "Text") {
       drawText(item, g, ctx.updates);
     } else if (item.type === "Image") {
-      drawImage(item, g);
+      drawImage(item, g, ctx.updates);
     } else if (item.type === "Rectangle" || item.type === "Gradient" ||
                item.type === "Ellipse") {
       drawShape(item, g, ctx.defs);
     } else if (item.type === "DialGauge") {
       drawGauge(item, g, ctx.defs, ctx.updates);
+    } else if (item.type === "ETSMap") {
+      drawETSMap(item, g, ctx.mapUrl);
     }
   }
   function render(svg, layout, opts) {
@@ -340,7 +386,12 @@
     el("rect", { x: 0, y: 0, width: W, height: H, fill: rgba(bg) }, svg);
     const updates = [];
     const root = el("g", {}, svg);
-    (data.items || []).forEach(item => drawItem(item, root, { defs, updates }));
+    const ctx = {
+      defs, updates,
+      mapUrl: data.map_url || (opts && opts.mapUrl) ||
+        "http://127.0.0.1:8888/maps/map.html#norefresh",
+    };
+    (data.items || []).forEach(item => drawItem(item, root, ctx));
     const view = {
       update(state) {
         updates.forEach(fn => {

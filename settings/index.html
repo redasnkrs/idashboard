@@ -129,6 +129,14 @@
     .appearance { grid-template-columns: 1fr; }
     .preview-card { position: static; }
   }
+html { touch-action: manipulation; }
+@media (pointer: coarse) {
+  button, .link, .tabs button, input, select, textarea {
+    min-height: 44px; font-size: 15px;
+  }
+  .tabs button { padding: 10px 14px; }
+  .checks label { min-height: 40px; }
+}
 </style>
 </head>
 <body>
@@ -269,6 +277,11 @@
       <div class="kv"><span>Démarrage Windows</span>
         <label class="checks" style="display:flex;gap:7px;align-items:center">
           <input type="checkbox" id="startupToggle"> Lancer idash au démarrage
+        </label>
+      </div>
+      <div class="kv"><span>Ouverture de l'app</span>
+        <label class="checks" style="display:flex;gap:7px;align-items:center">
+          <input type="checkbox" id="openOnStartToggle"> Ouvrir directement le 7"
         </label>
       </div>
       <div class="kv"><span>Écran du 7"</span>
@@ -739,6 +752,7 @@
       $('startupToggle').checked = !!(data.startup && data.startup.enabled);
       $('startupToggle').disabled = !(data.startup && data.startup.available);
       $('keepScreenToggle').checked = !!data.keep_screen;
+      $('openOnStartToggle').checked = data.open_on_start !== false;
       $('systemMode').textContent = data.frozen ? 'application .exe' : 'source Python';
       if (!(data.startup && data.startup.available)) {
         $('systemHint').textContent = 'Le démarrage automatique est disponible sous Windows.';
@@ -762,6 +776,17 @@
       const r = await fetch('/api/app', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ keep_screen: $('keepScreenToggle').checked }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) throw new Error(data.error || 'échec');
+      toast('Réglage enregistré.');
+    } catch (e) { toast('Échec : ' + e.message, true); }
+  }
+  async function saveOpenOnStart() {
+    try {
+      const r = await fetch('/api/app', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ open_on_start: $('openOnStartToggle').checked }),
       });
       const data = await r.json();
       if (!r.ok || !data.ok) throw new Error(data.error || 'échec');
@@ -859,6 +884,7 @@
     $('screenTest').addEventListener('click', testScreen);
     $('saveDefault').addEventListener('click', saveDefault);
     $('keepScreenToggle').addEventListener('change', saveKeepScreen);
+    $('openOnStartToggle').addEventListener('change', saveOpenOnStart);
     $('startupToggle').addEventListener('change', saveStartup);
     $('openLogs').addEventListener('click', async () => {
       await fetch('/api/open-logs', { method: 'POST' });

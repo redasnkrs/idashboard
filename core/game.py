@@ -26,6 +26,10 @@ GAMES = {
         "name": "Automobilista 2", "app_id": "1066890",
         "install": "Automobilista 2", "exe": "AMS2.exe",
     },
+    "ets2": {
+        "name": "Euro Truck Simulator 2", "app_id": "227300",
+        "install": "Euro Truck Simulator 2", "exe": "eurotrucks2.exe",
+    },
 }
 DEFAULT_GAME = "acevo"
 DEFAULT_APP_ID = GAMES[DEFAULT_GAME]["app_id"]

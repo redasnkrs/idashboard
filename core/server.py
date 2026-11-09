@@ -119,6 +119,7 @@ class Handler(BaseHTTPRequestHandler):
             body = {"version": VERSION,
                     "default_dashboard": app_settings.default_dashboard(),
                     "keep_screen": app_settings.keep_screen(),
+                    "open_on_start": app_settings.open_on_start(),
                     "startup": startup.status(),
                     "frozen": bool(getattr(sys, "frozen", False))}
             self._send(json.dumps(body).encode(), "application/json")
@@ -536,7 +537,8 @@ class Handler(BaseHTTPRequestHandler):
             payload = self._read_json()
             result = {"ok": True,
                       "default_dashboard": app_settings.default_dashboard(),
-                      "keep_screen": app_settings.keep_screen()}
+                      "keep_screen": app_settings.keep_screen(),
+                      "open_on_start": app_settings.open_on_start()}
             if "default_dashboard" in payload:
                 item = catalog.find(payload.get("default_dashboard") or
                                     DEFAULT_DASHBOARD)
@@ -547,6 +549,9 @@ class Handler(BaseHTTPRequestHandler):
             if "keep_screen" in payload:
                 result["keep_screen"] = app_settings.save_keep_screen(
                     payload.get("keep_screen"))
+            if "open_on_start" in payload:
+                result["open_on_start"] = app_settings.save_open_on_start(
+                    payload.get("open_on_start"))
         except (ValueError, KeyError, TypeError, AttributeError) as exc:
             self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
                        "application/json", 400)

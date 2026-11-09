@@ -57,6 +57,11 @@ class AppSettingsTest(unittest.TestCase):
         app_settings.save_last_dashboard("../bad")
         self.assertEqual("custom/audi", app_settings.last_dashboard())
 
+    def test_open_on_start(self):
+        self.assertTrue(app_settings.open_on_start())
+        self.assertFalse(app_settings.save_open_on_start(False))
+        self.assertFalse(app_settings.open_on_start())
+
     def test_pick_7(self):
         monitors = [
             {"width": 2560, "height": 1440, "primary": True, "x": 0, "y": 0},

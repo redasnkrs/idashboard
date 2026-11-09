@@ -1,4 +1,4 @@
-"""Source automatique : essaie AC Evo, AC 2014 puis AMS2."""
+"""Source automatique : AC Evo, AC 2014, AMS2 puis SimHub (ETS2/ATS)."""
 from adapters.base import DISCONNECTED_ETS2, Source
 
 

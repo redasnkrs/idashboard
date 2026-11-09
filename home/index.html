@@ -104,6 +104,13 @@
            max-width: calc(100vw - 40px); }
   #toast.show { opacity: 1; transform: translate(-50%, 0); }
   #toast.err { border-color: var(--red); color: #ffb3ab; }
+html { touch-action: manipulation; }
+@media (pointer: coarse), (max-width: 1100px) {
+  .link, .btn, .chip { min-height: 44px; padding: 12px 18px; font-size: 14px; }
+  .actions { gap: 10px; }
+  .tabs { gap: 8px; }
+  .tabs button { min-height: 42px; }
+}
 </style>
 </head>
 <body>

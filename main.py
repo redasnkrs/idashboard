@@ -28,6 +28,9 @@ def _make_source(fake, game):
     if fake or game == "fake":
         from adapters.fake import FakeSource
         return FakeSource()
+    if game in ("simhub", "ets2", "ats"):
+        from adapters.simhub import SimHubSource
+        return SimHubSource()
     if sys.platform != "win32":
         sys.exit("Les vraies sources doivent tourner sous Windows (memoire "
                  "partagee). Utilise --fake pour tester sans jeu.")
@@ -46,6 +49,7 @@ def _make_source(fake, game):
     from adapters.ac import AcSource
     from adapters.ams2 import Ams2Source
     from adapters.auto import AutoSource
+    from adapters.simhub import SimHubSource
     sources = []
     try:
         from adapters.acevo import AcevoSource
@@ -54,6 +58,7 @@ def _make_source(fake, game):
         pass
     sources.append(AcSource())
     sources.append(Ams2Source())
+    sources.append(SimHubSource())
     return AutoSource(sources)
 
 
@@ -65,10 +70,12 @@ def main(argv=None):
     ap.add_argument("--fake", action="store_true",
                     help="fausse source, sans jeu (Mac/Linux)")
     ap.add_argument("--game", default="auto",
-                    choices=("auto", "acevo", "ac", "ams2", "fake"),
+                    choices=("auto", "acevo", "ac", "ams2", "simhub",
+                             "ets2", "ats", "fake"),
                     help="source de telemetrie (defaut: detection auto)")
     ap.add_argument("--port", type=int, default=PORT)
     ap.add_argument("--no-tray", action="store_true")
+    ap.add_argument("--no-open", action="store_true")
     args = ap.parse_args(argv)
 
     setup_logging(args.debug)
@@ -90,6 +97,10 @@ def main(argv=None):
     server = serve(args.port)
     port = server.server_address[1]
     watchdog.start()
+    if app_settings.open_on_start() and not args.no_open and not args.fake:
+        threading.Timer(1.2, lambda: launcher.open_dashboard(
+            app_settings.last_dashboard() or
+            app_settings.default_dashboard())).start()
     if not args.no_tray and not args.fake:
         tray.start(
             on_open=lambda: launcher.open_dashboard(

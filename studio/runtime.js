@@ -731,6 +731,9 @@
       npos: (t / 90) % 1, car: "FERRARI 296 GT3", track: "MONZA",
       cfg: "GRAND PRIX", mode: "SPORT+",
       game: "Assetto Corsa Evo", game_id: "acevo",
+      gear_text: "4", game_time: "10:00", speed_unit: "km/h",
+      destination: "Paris · EuroGoodies", eta_text: "ETA : 01:12",
+      wear_truck: 98, wear_trailer: 94, wear_cargo: 91, speed_limit: 90,
     };
   }
 

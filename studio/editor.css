@@ -173,3 +173,12 @@ h2:first-child { margin-top: 0; }
   #app { grid-template-columns: 220px minmax(0, 1fr) 280px; }
   #top .ghost { display: none; }
 }
+
+html { touch-action: manipulation; }
+@media (pointer: coarse) {
+  button, .sel, .name, input, select, textarea { min-height: 42px; font-size: 14px; }
+  .palette-grid button { min-height: 44px; font-size: 13px; }
+  .icon-item { width: 48px; height: 48px; }
+  .layer button { padding: 6px 8px; font-size: 14px; }
+  #top { flex-wrap: wrap; }
+}

@@ -13,8 +13,9 @@ Voir `Mini Deck App Roadmap.md` pour le projet complet et les phases.
 3. Aucun Python à installer. Les logs sont dans `logs/idash.log`.
 
 Le tray permet d'ouvrir l'accueil, les réglages, de redémarrer ou de quitter.
-Le démarrage avec Windows et la réouverture automatique du 7" sont dans
-`/settings` → Système.
+Au lancement, idash ouvre directement le dernier compteur sur le 7" (option
+désactivable dans `/settings` → Système). Le démarrage avec Windows et la
+réouverture automatique du 7" sont aussi dans cette page.
 
 ### Version source (développement)
 
@@ -62,7 +63,13 @@ Le pont lit en priorité le jeu qu'il trouve (détection automatique) :
 - **Assetto Corsa Evo** (`acevo_pmf_*`, via `acevo-sdk`) ;
 - **Assetto Corsa 2014** (`acpmf_*`, shared memory classique) ;
 - **Automobilista 2** (`$pcars2$`, mode Shared Memory « Project CARS 2 » à
-  activer dans les options du jeu).
+  activer dans les options du jeu) ;
+- **Euro Truck Simulator 2 / ATS via SimHub** : idash lit
+  `http://127.0.0.1:8888/api/getgamedata` et utilise aussi la carte GPS
+  SimHub (`/maps/map.html`). SimHub doit être lancé avec son serveur web sur
+  le port 8888. La carte affichée est celle de SimHub / du jeu, pas une carte
+  redessinée par idash ; les mods de carte suivent le paquet TruckMaps utilisé
+  par SimHub.
 
 Pour forcer une source : `python main.py --game ac`, `--game ams2` ou
 `--game acevo`. Sans option, le pont essaie AC Evo, puis AC, puis AMS2.
@@ -84,8 +91,8 @@ position — fonctionne).
   unités et blocs, avec un aperçu compact.
 - **Compteurs** : compteur par défaut (utilisé par `/dashboard` et l'accueil).
 - **Système** : version, source de télémétrie active, mode exe/source,
-  santé (`/api/health`), logs, démarrage Windows, réouverture du 7",
-  redémarrage et mise à jour.
+  santé (`/api/health`), logs, démarrage Windows, ouverture directe du 7",
+  réouverture du 7", redémarrage et mise à jour.
 
 Les chemins de jeux et l'écran sont dans `app.json` (ignoré par git).
 
@@ -136,6 +143,11 @@ Ouvre `http://localhost:25555/studio` (bouton **Studio** sur l'accueil).
   thème de prévisualisation et bouton « Launch on 7" ».
 - Un compteur perso apparaît automatiquement dans l'accueil, les réglages,
   le swipe et le catalogue ; il utilise le thème global/compteur existant.
+
+Pour ETS2/ATS, importe le dashboard SimHub `Truck Route Advisor` puis sauvegarde-le.
+La zone carte utilise le vrai GPS SimHub. Si le serveur web SimHub n'est pas sur
+le port 8888, lance idash avec `IDASH_SIMHUB_API_URL` et
+`IDASH_SIMHUB_MAP_URL` adaptés.
 
 Les fichiers générés sont dans `custom/` (ignoré par git) :
 `custom/layouts/`, `custom/previews/`, `custom/icons/`,

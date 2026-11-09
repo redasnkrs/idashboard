@@ -168,7 +168,7 @@ class ServerTest(unittest.TestCase):
         status, _, body = self.get("/api/games")
         self.assertEqual(200, status)
         keys = {item["key"] for item in json.loads(body)["games"]}
-        self.assertEqual({"acevo", "ac", "ams2"}, keys)
+        self.assertEqual({"acevo", "ac", "ams2", "ets2"}, keys)
 
     def test_games_save_and_detect(self):
         status, body = self.post("/api/games/ac", {"exe": "/tmp/acs.exe"})
@@ -583,6 +583,10 @@ class ServerTest(unittest.TestCase):
         self.assertTrue(app_settings.keep_screen())
         status, body = self.post("/api/app", {"keep_screen": False})
         self.assertFalse(json.loads(body)["keep_screen"])
+        status, body = self.post("/api/app", {"open_on_start": False})
+        self.assertEqual(200, status)
+        self.assertFalse(json.loads(body)["open_on_start"])
+        self.assertFalse(app_settings.open_on_start())
 
     def test_settings_page(self):
         status, ctype, body = self.get("/settings")

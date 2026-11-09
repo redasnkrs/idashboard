@@ -70,7 +70,7 @@ class GameTest(unittest.TestCase):
 
     def test_all_games_status(self):
         keys = {item["key"] for item in game.status_all()}
-        self.assertEqual({"acevo", "ac", "ams2"}, keys)
+        self.assertEqual({"acevo", "ac", "ams2", "ets2"}, keys)
 
 
 if __name__ == "__main__":

@@ -170,6 +170,29 @@ class SimHubImportTest(unittest.TestCase):
         self.assertFalse(any(i["name"] == "Ignition" for i in items))
         self.assertEqual("Dashboard", report["screen"])
 
+    def test_route_advisor_map_is_preserved(self):
+        path = (Path(__file__).resolve().parent.parent / "dashboards" /
+                "course" / "SimHub - Truck Route Advisor.simhubdash")
+        if not path.is_file():
+            self.skipTest("route advisor absent")
+        data = base64.b64encode(path.read_bytes()).decode()
+        layout, report = simhub_faithful.import_faithful(
+            data, path.name)
+        self.assertEqual("simhub", layout["kind"])
+        self.assertTrue(layout["simhub"].get("map_url"))
+        found = []
+
+        def walk(items):
+            for item in items:
+                if item.get("type") == "ETSMap":
+                    found.append(item)
+                walk(item.get("children") or [])
+                walk((item.get("child") or {}).get("items") or [])
+
+        walk(layout["simhub"]["items"])
+        self.assertEqual(1, len(found))
+        self.assertGreater(found[0]["width"], 1000)
+
     def test_speed_unit_visibility_keeps_kmh(self):
         kmh = item("TextItem", "KMH", Left=0, Top=0, Width=80, Height=40,
                    Text="mph", Visible=True,

@@ -26,6 +26,12 @@ def _read_version():
 VERSION = _read_version()
 
 PORT = int(os.environ.get("IDASH_PORT", "25555"))
+SIMHUB_MAP_URL = os.environ.get(
+    "IDASH_SIMHUB_MAP_URL",
+    "http://127.0.0.1:8888/maps/map.html#norefresh")
+SIMHUB_API_URL = os.environ.get(
+    "IDASH_SIMHUB_API_URL",
+    "http://127.0.0.1:8888/api/getgamedata")
 POLL_HZ = int(os.environ.get("IDASH_POLL_HZ", "60"))
 STREAM_HZ = int(os.environ.get("IDASH_STREAM_HZ", "60"))
 

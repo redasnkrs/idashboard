@@ -22,7 +22,8 @@ _lock = threading.Lock()
 
 def _empty():
     return {"screen": {}, "games": {}, "default_dashboard": "",
-            "keep_screen": False, "last_dashboard": ""}
+            "keep_screen": False, "last_dashboard": "",
+            "open_on_start": True}
 
 
 def load():
@@ -43,6 +44,8 @@ def load():
             state["default_dashboard"] = dash
         if "keep_screen" in saved:
             state["keep_screen"] = bool(saved.get("keep_screen"))
+        if "open_on_start" in saved:
+            state["open_on_start"] = bool(saved.get("open_on_start"))
         last = saved.get("last_dashboard")
         if isinstance(last, str) and _SAFE_DASH.match(last):
             state["last_dashboard"] = last
@@ -188,6 +191,18 @@ def save_keep_screen(enabled):
 def last_dashboard():
     value = load().get("last_dashboard") or ""
     return value if _SAFE_DASH.match(value) else ""
+
+
+def open_on_start():
+    return bool(load().get("open_on_start", True))
+
+
+def save_open_on_start(enabled):
+    with _lock:
+        state = load()
+        state["open_on_start"] = bool(enabled)
+        _save(state)
+        return state["open_on_start"]
 
 
 def save_last_dashboard(spec):
