@@ -4,6 +4,19 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.7.4] - 2026-11-09
+
+### Ajouté
+- Installation du plugin SCS SDK depuis `/settings` → Jeux, pour lire
+  ETS2/ATS sans SimHub.
+- Installation locale de la carte ETS2 depuis la même page.
+
+### Corrigé
+- Les dashboards SimHub fidèles ne sont plus bloqués par l’écran
+  « Waiting for Assetto Corsa Evo » quand la télémétrie n’est pas encore là.
+  Le compteur reste affiché avec un petit bandeau d’attente.
+- Le message d’attente utilise le jeu du dashboard (ETS2) au lieu d’AC Evo.
+
 ## [0.7.3] - 2026-11-09
 
 ### Corrigé

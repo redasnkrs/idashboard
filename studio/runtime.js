@@ -836,6 +836,8 @@
     const layout = data.layout;
     const meta = data.meta || META;
     const faithful = layout.kind === "simhub" && window.IDashSimhub;
+    const gameLabel = meta.game ||
+      (meta.game_id === "ets2" ? "Euro Truck Simulator 2" : "Assetto Corsa Evo");
     document.title = (layout.name || "Dashboard") + " — idash";
     let theme = JSON.parse(JSON.stringify(DEFAULT_THEME));
     let C = theme.colors;
@@ -946,9 +948,16 @@
       const raw = demo ? demoState(now / 1000 + demoOffset, demoIgn) : state;
       const live = !!raw.c && (demo || now - lastMsg < 2000);
       if (wait) {
+        wait.classList.toggle("mini", !!faithful);
         wait.style.display = live ? "none" : "";
         const title = wait.querySelector("div");
-        if (title && raw.game) title.textContent = "Waiting for " + raw.game;
+        if (title) title.textContent = faithful
+          ? "Télémétrie en attente — " + (raw.game || gameLabel)
+          : "Waiting for " + (raw.game || gameLabel);
+        if (faithful) {
+          const small = wait.querySelector("small");
+          if (small) small.textContent = "Vérifie le plugin SCS SDK dans ETS2";
+        }
       }
       if (!demo && raw.game_id && raw.game_id !== GAME &&
           !params.has("nogame") && !GAME_OVERRIDE) {

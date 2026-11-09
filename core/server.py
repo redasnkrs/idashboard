@@ -23,12 +23,13 @@ import socket
 import sys
 import threading
 import time
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
 from core import (app_control, app_settings, catalog, ets2_map, game, health,
-                  launcher, media, pump, screens, simhub, simhub_faithful,
-                  startup, studio, themes, updater)
+                  launcher, media, pump, screens, scs_plugin, simhub,
+                  simhub_faithful, startup, studio, themes, updater)
 from core.config import (DEFAULT_DASHBOARD, HOME_FILE, PORT, SETTINGS_FILE,
                          STREAM_HZ, STUDIO_DIR, UPDATE_FILE, VERSION,
                          dashboard_asset, dashboard_file, dashboard_manifest,
@@ -136,6 +137,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send(json.dumps(body).encode(), "application/json")
         elif path == "/api/ets2/map":
             self._send(json.dumps(ets2_map.info()).encode(),
+                       "application/json")
+        elif path == "/api/ets2/plugin":
+            self._send(json.dumps(scs_plugin.status()).encode(),
                        "application/json")
         elif path.startswith("/api/ets2/map/tile/"):
             self._ets2_map_tile(path[len("/api/ets2/map/tile/"):])
@@ -254,6 +258,15 @@ class Handler(BaseHTTPRequestHandler):
             self._save_startup()
         elif path == "/api/ets2/map/download":
             self._send(json.dumps({"ok": ets2_map.start_download()}).encode(),
+                       "application/json")
+        elif path == "/api/ets2/plugin/install":
+            try:
+                info = scs_plugin.install()
+            except (ValueError, OSError, KeyError, zipfile.BadZipFile) as exc:
+                self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
+                           "application/json", 400)
+                return
+            self._send(json.dumps({"ok": True, "plugin": info}).encode(),
                        "application/json")
         elif path == "/api/ets2/map/import":
             saved = ets2_map.import_from_simhub()

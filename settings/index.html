@@ -197,6 +197,19 @@ html { touch-action: manipulation; }
       </p>
       <div class="status" id="ets2MapProgress"></div>
     </div>
+    <div class="card" style="max-width:760px;margin-top:18px">
+      <div class="row-between">
+        <div>
+          <div class="label">Plugin télémétrie SCS SDK</div>
+          <div class="big" id="scsPluginStatus">…</div>
+        </div>
+        <button id="scsPluginBtn" class="ghost" type="button">Installer le plugin</button>
+      </div>
+      <p class="hint" id="scsPluginHint">
+        Nécessaire pour lire ETS2/ATS sans SimHub. Après installation, relance le jeu.
+      </p>
+      <div class="status" id="scsPluginProgress"></div>
+    </div>
   </section>
 
   <section class="panel" id="tab-appearance">
@@ -693,6 +706,32 @@ html { touch-action: manipulation; }
     toast('Téléchargement de la carte ETS2 lancé…');
     loadMapInfo();
   }
+  async function loadPluginInfo() {
+    try {
+      const info = await fetch('/api/ets2/plugin', { cache: 'no-store' })
+        .then(r => r.json());
+      $('scsPluginStatus').textContent = info.installed ? 'Installé' :
+        info.available ? 'Non installé' : 'Windows uniquement';
+      $('scsPluginBtn').disabled = !!info.installed || !info.available;
+      $('scsPluginBtn').textContent = info.installed ? 'Installé' :
+        info.available ? 'Installer le plugin' : 'Windows uniquement';
+      $('scsPluginHint').textContent = info.plugins_dir || info.game_exe || '';
+      return info;
+    } catch (e) {
+      $('scsPluginStatus').textContent = 'Indisponible';
+    }
+  }
+  async function installPlugin() {
+    const r = await fetch('/api/ets2/plugin/install', { method: 'POST' });
+    const data = await r.json();
+    if (!r.ok || !data.ok) {
+      $('scsPluginProgress').textContent = data.error || 'Échec de l’installation.';
+      toast('Échec du plugin : ' + (data.error || 'inconnu'), true);
+      return;
+    }
+    toast('Plugin SCS installé. Relance ETS2.');
+    loadPluginInfo();
+  }
   async function loadGames() {
     try {
       const data = await fetch('/api/games', { cache: 'no-store' })
@@ -939,6 +978,7 @@ html { touch-action: manipulation; }
     $('screenTest').addEventListener('click', testScreen);
     $('saveDefault').addEventListener('click', saveDefault);
     $('ets2MapBtn').addEventListener('click', installMap);
+    $('scsPluginBtn').addEventListener('click', installPlugin);
     $('keepScreenToggle').addEventListener('change', saveKeepScreen);
     $('openOnStartToggle').addEventListener('change', saveOpenOnStart);
     $('startupToggle').addEventListener('change', saveStartup);
@@ -958,6 +998,7 @@ html { touch-action: manipulation; }
     await loadScreens();
     await loadGames();
     loadMapInfo();
+    loadPluginInfo();
     const requested = new URLSearchParams(location.search).get('dashboard');
     const wanted = dashboards.find(d => d.spec === requested ||
       d.id === requested);

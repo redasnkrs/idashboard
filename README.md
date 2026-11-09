@@ -148,9 +148,10 @@ Ouvre `http://localhost:25555/studio` (bouton **Studio** sur l'accueil).
 Pour ETS2/ATS, importe le dashboard SimHub `Truck Route Advisor`, puis
 installe la carte dans `/settings` → Jeux (`Installer la carte`, ~87 Mo). La
 carte est lue depuis `custom/maps/tsmap-ets2.zip` et affichée directement par
-idash, sans processus SimHub. Le plugin SCS SDK doit être présent dans
-`bin/win_x64/plugins` du jeu (SimHub en installe souvent un ; sinon utilise
-`scs-sdk-plugin` de RenCloud).
+idash, sans processus SimHub. Pour la télémétrie, idash peut installer le
+plugin open-source `scs-sdk-plugin` : `/settings` → Jeux → **Installer le
+plugin**. Le DLL va dans `bin/win_x64/plugins` ; relance ensuite ETS2.
+Si ETS2 n’est pas détecté, renseigne son chemin dans la même page.
 
 Les fichiers générés sont dans `custom/` (ignoré par git) :
 `custom/layouts/`, `custom/previews/`, `custom/icons/`,
