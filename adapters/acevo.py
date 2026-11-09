@@ -9,6 +9,9 @@ import time
 
 from adapters.base import DISCONNECTED_ETS2, Source
 
+ACEVO_FLAGS = {0: "", 1: "green", 2: "blue", 3: "white", 4: "black",
+               5: "red", 6: "yellow", 7: "double_yellow", 8: "checkered"}
+
 c = ctypes
 
 
@@ -207,6 +210,7 @@ def build_dash(phys, gfx, st):
         "L": bool(gfx.direction_light_left),
         "R": bool(gfx.direction_light_right),
         "haz": bool(gfx.warning_lights),
+        "flag": ACEVO_FLAGS.get(int(getattr(gfx, "global_flag", 0) or getattr(gfx, "flag", 0)), ""),
         "pit": bool(phys.get("pit_limiter_on")),
         "pitlane": bool(gfx.is_in_pit_lane),
         "tc": bool(gfx.tc_active), "abs": bool(gfx.abs_active),

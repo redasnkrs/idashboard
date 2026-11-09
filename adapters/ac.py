@@ -19,6 +19,8 @@ SIZES = (ctypes.sizeof(SPageFilePhysics),
          ctypes.sizeof(SPageFileStatic))
 NAMES = ("acpmf_physics", "acpmf_graphics", "acpmf_static")
 FUEL_DENSITY = 0.75  # AC expose le carburant en kg ; les compteurs affichent des litres
+AC_FLAGS = {0: "", 1: "blue", 2: "yellow", 3: "black", 4: "white",
+            5: "checkered", 6: "penalty"}
 
 
 def _clean(value):
@@ -159,6 +161,7 @@ class AcSource(Source):
                 "L": False,
                 "R": False,
                 "haz": False,
+                "flag": AC_FLAGS.get(int(getattr(gfx, "flag", 0)), ""),
                 "pit": bool(phys.pitLimiterOn),
                 "pitlane": bool(gfx.isInPitLine or gfx.isInPit),
                 "tc": float(phys.tc) > .5,

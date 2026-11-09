@@ -16,6 +16,10 @@ from adapters.ams2_defs import (CAR_ENGINE_ACTIVE, CAR_HEADLIGHT,
                                 GAME_FRONT_END_REPLAY, GameInstance)
 from adapters.base import Source, basic_ets2
 
+AMS2_FLAGS = {0: "", 1: "green", 2: "blue", 3: "white", 4: "white",
+              5: "red", 6: "yellow", 7: "double_yellow", 8: "black_white",
+              9: "black_orange", 10: "black", 11: "checkered"}
+
 SHARED_NAME = "$pcars2$"
 SIZE = ctypes.sizeof(GameInstance)
 
@@ -180,6 +184,7 @@ class Ams2Source(Source):
                 "L": False,
                 "R": False,
                 "haz": False,
+                "flag": AMS2_FLAGS.get(int(getattr(view, "mHighestFlagColour", 0)), ""),
                 "pit": bool(flags & CAR_SPEED_LIMITER),
                 "pitlane": int(view.mPitMode) > 0,
                 "tc": False,

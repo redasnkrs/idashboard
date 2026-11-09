@@ -27,7 +27,7 @@ import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
-from core import (app_control, app_settings, catalog, ets2_extract, ets2_map, game,
+from core import (ambient, app_control, app_settings, catalog, ets2_extract, ets2_map, game,
                   health, launcher, media, pump, screens, scs_plugin, simhub,
                   simhub_faithful, startup, studio, themes, updater)
 from core.config import (DEFAULT_DASHBOARD, HOME_FILE, PORT, SETTINGS_FILE,
@@ -115,6 +115,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send(json.dumps(body).encode(), "application/json")
         elif path == "/api/games":
             self._send(json.dumps({"games": game.status_all()}).encode(),
+                       "application/json")
+        elif path == "/api/ambient":
+            self._send(json.dumps(ambient.status()).encode(),
                        "application/json")
         elif path == "/api/app":
             body = {"version": VERSION,
@@ -264,6 +267,28 @@ class Handler(BaseHTTPRequestHandler):
             self._save_screen()
         elif path == "/api/app":
             self._save_app()
+        elif path == "/api/ambient":
+            try:
+                payload = self._read_json()
+                saved = app_settings.save_ambient(payload)
+                ambient.restart()
+            except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
+                           "application/json", 400)
+                return
+            self._send(json.dumps({"ok": True, "ambient": saved}).encode(),
+                       "application/json")
+        elif path == "/api/ambient/test":
+            try:
+                payload = self._read_json()
+                ambient.test(payload.get("kind", "left"),
+                             payload.get("seconds", 3))
+            except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
+                           "application/json", 400)
+                return
+            self._send(json.dumps({"ok": True}).encode(),
+                       "application/json")
         elif path == "/api/startup":
             self._save_startup()
         elif path == "/api/ets2/map/download":

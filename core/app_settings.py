@@ -23,7 +23,7 @@ _lock = threading.Lock()
 def _empty():
     return {"screen": {}, "games": {}, "default_dashboard": "",
             "keep_screen": False, "last_dashboard": "",
-            "open_on_start": True}
+            "open_on_start": True, "ambient": {}}
 
 
 def load():
@@ -191,6 +191,100 @@ def save_keep_screen(enabled):
 def last_dashboard():
     value = load().get("last_dashboard") or ""
     return value if _SAFE_DASH.match(value) else ""
+
+
+_AMBIENT_DEFAULTS = {
+    "enabled": False,
+    "led_count": 0,
+    "split": 0.5,
+    "swap": False,
+    "brightness": 1.0,
+    "turn_color": "#ff7a00",
+    "idle_color": "#000000",
+    "rpm": True,
+    "flags": True,
+    "brake": False,
+    "fps": 20,
+}
+
+
+def _hex_color(value, default):
+    if isinstance(value, str):
+        value = value.strip()
+        if re.fullmatch(r"#[0-9a-fA-F]{6}", value):
+            return value.lower()
+    return default
+
+
+def ambient():
+    raw = load().get("ambient")
+    out = dict(_AMBIENT_DEFAULTS)
+    if not isinstance(raw, dict):
+        return out
+    out["enabled"] = bool(raw.get("enabled"))
+    try:
+        out["led_count"] = max(0, min(512, int(raw.get("led_count", 0))))
+    except (TypeError, ValueError):
+        pass
+    try:
+        out["split"] = max(0.05, min(0.95, float(raw.get("split", 0.5))))
+    except (TypeError, ValueError):
+        pass
+    out["swap"] = bool(raw.get("swap"))
+    try:
+        out["brightness"] = max(0.05, min(1.0, float(raw.get("brightness", 1.0))))
+    except (TypeError, ValueError):
+        pass
+    out["turn_color"] = _hex_color(raw.get("turn_color"), out["turn_color"])
+    out["idle_color"] = _hex_color(raw.get("idle_color"), out["idle_color"])
+    for key in ("rpm", "flags", "brake"):
+        if key in raw:
+            out[key] = bool(raw.get(key))
+    try:
+        out["fps"] = max(5, min(30, int(raw.get("fps", 20))))
+    except (TypeError, ValueError):
+        pass
+    return out
+
+
+def save_ambient(payload):
+    if not isinstance(payload, dict):
+        raise ValueError("configuration ambient invalide")
+    with _lock:
+        state = load()
+        state["ambient"] = ambient_from(payload)
+        _save(state)
+        return state["ambient"]
+
+
+def ambient_from(raw):
+    out = dict(_AMBIENT_DEFAULTS)
+    if not isinstance(raw, dict):
+        return out
+    out["enabled"] = bool(raw.get("enabled"))
+    try:
+        out["led_count"] = max(0, min(512, int(raw.get("led_count", 0))))
+    except (TypeError, ValueError):
+        pass
+    try:
+        out["split"] = max(0.05, min(0.95, float(raw.get("split", 0.5))))
+    except (TypeError, ValueError):
+        pass
+    out["swap"] = bool(raw.get("swap"))
+    try:
+        out["brightness"] = max(0.05, min(1.0, float(raw.get("brightness", 1.0))))
+    except (TypeError, ValueError):
+        pass
+    out["turn_color"] = _hex_color(raw.get("turn_color"), out["turn_color"])
+    out["idle_color"] = _hex_color(raw.get("idle_color"), out["idle_color"])
+    for key in ("rpm", "flags", "brake"):
+        if key in raw:
+            out[key] = bool(raw.get(key))
+    try:
+        out["fps"] = max(5, min(30, int(raw.get("fps", 20))))
+    except (TypeError, ValueError):
+        pass
+    return out
 
 
 def open_on_start():

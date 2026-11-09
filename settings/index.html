@@ -224,6 +224,40 @@ html { touch-action: manipulation; }
     <div class="card" style="max-width:760px;margin-top:18px">
       <div class="row-between">
         <div>
+          <div class="label">Ambient lights (DX Light / Robobloq)</div>
+          <div class="big" id="ambientStatus">…</div>
+        </div>
+        <label class="checks" style="display:flex;gap:7px;align-items:center">
+          <input type="checkbox" id="ambientEnabled"> Activer
+        </label>
+      </div>
+      <p class="hint" id="ambientHint">
+        Ferme DX Light avant : un seul programme peut contrôler le bandeau.
+        Clignotants gauche/droite, régime, drapeaux et frein.
+      </p>
+      <div class="games" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:12px">
+        <label class="field"><span>LED (0 = auto)</span><input id="ambientCount" type="number" min="0" max="512" step="1"></label>
+        <label class="field"><span>Part gauche (%)</span><input id="ambientSplit" type="number" min="5" max="95" step="1"></label>
+        <label class="field"><span>Luminosité (%)</span><input id="ambientBrightness" type="number" min="5" max="100" step="1"></label>
+        <label class="field"><span>FPS</span><input id="ambientFps" type="number" min="5" max="30" step="1"></label>
+      </div>
+      <div class="actions" style="margin-top:10px;gap:14px;flex-wrap:wrap">
+        <label class="checks"><input type="checkbox" id="ambientRpm"> Régime</label>
+        <label class="checks"><input type="checkbox" id="ambientFlags"> Drapeaux</label>
+        <label class="checks"><input type="checkbox" id="ambientBrake"> Frein</label>
+        <label class="checks"><input type="checkbox" id="ambientSwap"> Inverser gauche/droite</label>
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button id="ambientTestLeft" class="ghost" type="button">Test gauche</button>
+        <button id="ambientTestRight" class="ghost" type="button">Test droite</button>
+        <button id="ambientTestRpm" class="ghost" type="button">Test régime</button>
+        <button id="ambientTestFlag" class="ghost" type="button">Test drapeau</button>
+      </div>
+      <div class="status" id="ambientProgress"></div>
+    </div>
+    <div class="card" style="max-width:760px;margin-top:18px">
+      <div class="row-between">
+        <div>
           <div class="label">Plugin télémétrie SCS SDK</div>
           <div class="big" id="scsPluginStatus">…</div>
         </div>
@@ -688,6 +722,66 @@ html { touch-action: manipulation; }
     }
   }
 
+  /* ---------- ambient lights ---------- */
+  let ambientTimer = 0;
+  function ambientPayload() {
+    return {
+      enabled: $('ambientEnabled').checked,
+      led_count: Number($('ambientCount').value || 0),
+      split: Number($('ambientSplit').value || 50) / 100,
+      brightness: Number($('ambientBrightness').value || 100) / 100,
+      fps: Number($('ambientFps').value || 20),
+      rpm: $('ambientRpm').checked,
+      flags: $('ambientFlags').checked,
+      brake: $('ambientBrake').checked,
+      swap: $('ambientSwap').checked,
+    };
+  }
+  async function loadAmbient() {
+    try {
+      const info = await fetch('/api/ambient', { cache: 'no-store' })
+        .then(r => r.json());
+      const cfg = info.config || {};
+      if (document.activeElement !== $('ambientCount')) $('ambientCount').value = cfg.led_count ?? 0;
+      if (document.activeElement !== $('ambientSplit')) $('ambientSplit').value = Math.round((cfg.split ?? .5) * 100);
+      if (document.activeElement !== $('ambientBrightness')) $('ambientBrightness').value = Math.round((cfg.brightness ?? 1) * 100);
+      if (document.activeElement !== $('ambientFps')) $('ambientFps').value = cfg.fps ?? 20;
+      $('ambientEnabled').checked = !!cfg.enabled;
+      $('ambientRpm').checked = cfg.rpm !== false;
+      $('ambientFlags').checked = cfg.flags !== false;
+      $('ambientBrake').checked = !!cfg.brake;
+      $('ambientSwap').checked = !!cfg.swap;
+      $('ambientStatus').textContent = !info.available ? 'Windows + hidapi requis' :
+        info.connected ? 'Connecté' + (info.led_count ? ' (' + info.led_count + ' LED)' : '') :
+        cfg.enabled ? 'En attente du bandeau' : 'Désactivé';
+      $('ambientProgress').textContent = info.error || '';
+      if (cfg.enabled) {
+        clearTimeout(ambientTimer);
+        ambientTimer = setTimeout(loadAmbient, 2000);
+      }
+    } catch (e) {
+      $('ambientStatus').textContent = 'Indisponible';
+    }
+  }
+  async function saveAmbient() {
+    try {
+      const r = await fetch('/api/ambient', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ambientPayload()),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) throw new Error(data.error || 'échec');
+      loadAmbient();
+    } catch (e) { toast('Échec ambient : ' + e.message, true); }
+  }
+  async function testAmbient(kind) {
+    try {
+      await fetch('/api/ambient/test', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, seconds: 3 }),
+      });
+    } catch (e) { toast('Test ambient impossible : ' + e.message, true); }
+  }
   /* ---------- jeux ---------- */
   async function loadMapInfo() {
     try {
@@ -1067,6 +1161,15 @@ html { touch-action: manipulation; }
     $('saveDefault').addEventListener('click', saveDefault);
     $('ets2MapBtn').addEventListener('click', installMap);
     $('genBtn').addEventListener('click', startGen);
+    for (const id of ['ambientEnabled', 'ambientCount', 'ambientSplit',
+      'ambientBrightness', 'ambientFps', 'ambientRpm', 'ambientFlags',
+      'ambientBrake', 'ambientSwap']) {
+      $(id).addEventListener('change', saveAmbient);
+    }
+    $('ambientTestLeft').addEventListener('click', () => testAmbient('left'));
+    $('ambientTestRight').addEventListener('click', () => testAmbient('right'));
+    $('ambientTestRpm').addEventListener('click', () => testAmbient('rpm'));
+    $('ambientTestFlag').addEventListener('click', () => testAmbient('flag'));
     $('scsPluginBtn').addEventListener('click', installPlugin);
     $('keepScreenToggle').addEventListener('change', saveKeepScreen);
     $('openOnStartToggle').addEventListener('change', saveOpenOnStart);
@@ -1088,6 +1191,7 @@ html { touch-action: manipulation; }
     await loadGames();
     loadMapInfo();
     loadGenInfo();
+    loadAmbient();
     loadPluginInfo();
     const requested = new URLSearchParams(location.search).get('dashboard');
     const wanted = dashboards.find(d => d.spec === requested ||

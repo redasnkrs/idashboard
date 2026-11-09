@@ -4,6 +4,22 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.9.0] - 2026-11-09
+
+### Ajouté
+- Contrôle direct des bandeaux **Robobloq / DX Light** en USB HID, sans passer
+  par l’application DX Light.
+- Clignotants gauche/droite et feux de détresse sur la moitié correspondante
+  du bandeau, régime moteur en barre colorée, drapeaux de course (jaune, bleu,
+  rouge, drapeau à damier…) et frein.
+- Réglages `/settings` → Jeux : activation, nombre de LED (auto), part
+  gauche, luminosité, FPS, inversion gauche/droite et tests.
+- Nouvelle clé de télémétrie `flag` pour AC 2014, AMS2 et AC Evo.
+
+### Modifié
+- Le bandeau doit être libre : fermer DX Light avant d’activer le contrôle
+  idash.
+
 ## [0.8.3] - 2026-11-09
 
 ### Modifié

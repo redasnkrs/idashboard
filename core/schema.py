@@ -31,6 +31,7 @@ DASH_SCHEMA = {
     "L": "bool",
     "R": "bool",
     "haz": "bool",
+    "flag": "str",
     "pit": "bool",
     "pitlane": "bool",
     "tc": "bool",

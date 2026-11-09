@@ -174,6 +174,25 @@ Ordre de grandeur : 0-7 en 512 px prend environ 0,5 à 1,5 Go ; 0-8 peut
 prendre 2 à 5 Go et beaucoup plus de temps. Pour accélérer, ajoute une
 exclusion Windows Defender pour le dossier `idash\custom\maps`.
 
+### Ambient lights Robobloq / DX Light
+
+idash peut piloter directement le bandeau USB HID (VID `1A86`, PID `FE07`)
+sans lancer DX Light. Ferme DX Light : un seul programme peut ouvrir le
+périphérique.
+
+Dans `/settings` → **Jeux** → **Ambient lights** :
+
+- **LED (0 = auto)** : nombre de LED détecté automatiquement si possible.
+- **Part gauche (%)** : séparation gauche/droite du bandeau.
+- **Clignotants** : la moitié gauche ou droite clignote en orange.
+- **Régime** : barre verte → jaune → rouge selon `r / rm`.
+- **Drapeaux** : jaune, bleu, rouge, damier… selon la clé `flag`.
+- **Frein** : bandeau rouge quand le frein est fort.
+- **Tests** : gauche, droite, régime, drapeau.
+
+Les clignotants viennent de `L/R/haz` (ETS2, AC Evo), les drapeaux de `flag`
+(AC 2014, AMS2, AC Evo). AC 2014 n’expose pas les clignotants.
+
 ### Carte ETS2 vectorielle (ProMods)
 
 La carte du Route Advisor est une **carte vectorielle ProMods** : idash dessine
