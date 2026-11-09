@@ -68,9 +68,9 @@ Le pont lit en priorité le jeu qu'il trouve (détection automatique) :
   activer dans les options du jeu) ;
 - **Euro Truck Simulator 2 / ATS** : lecture directe de `Local\SCSTelemetry`
   via le plugin SCS SDK (`truck-telemetry`), sans lancer SimHub. La carte GPS
-  est rendue par idash à partir des tuiles locales `tsmap-ets2.zip` ; c’est la
-  vraie carte du jeu, pas un tracé maison. L’API SimHub reste un fallback
-  optionnel si le plugin SCS n’est pas disponible.
+  est une carte vectorielle ProMods extraite des fichiers de carte du jeu, avec
+  zoom et déplacement. Les tuiles locales `tsmap-ets2.zip` restent le fallback.
+  L’API SimHub reste optionnelle si le plugin SCS n’est pas disponible.
 
 Pour forcer une source : `python main.py --game ac`, `--game ams2` ou
 `--game acevo`. Sans option, le pont essaie AC Evo, puis AC, puis AMS2.
@@ -153,27 +153,24 @@ plugin open-source `scs-sdk-plugin` : `/settings` → Jeux → **Installer le
 plugin**. Le DLL va dans `bin/win_x64/plugins` ; relance ensuite ETS2.
 Si ETS2 n’est pas détecté, renseigne son chemin dans la même page.
 
-### GPS ETS2 par capture écran (ProMods, itinéraire)
+### Carte ETS2 vectorielle (ProMods)
 
-C’est la solution pour avoir **exactement la carte du jeu**, y compris ProMods
-et le tracé de navigation, sans pack de tuiles :
+La carte du Route Advisor est une **carte vectorielle ProMods** : idash dessine
+les routes, les jonctions et les villes extraites des fichiers de carte du jeu.
+Le camion et son orientation viennent de la télémétrie SCS en temps réel.
 
-1. Mets ETS2 en **borderless/windowed** (pas en plein écran exclusif).
-2. Ouvre `/settings` → **Jeux** → **GPS ETS2 par capture écran**.
-3. Clique **Choisir la zone**, dessine un rectangle autour du GPS in-game,
-   puis **Enregistrer la zone**.
-4. Coche **Utiliser la capture**.
-
-La zone carte du Route Advisor affiche alors la capture du GPS réel. Le zoom
-est celui du GPS du jeu ; idash ne redimensionne pas la source. Sans capture,
-idash retombe sur la carte en tuiles.
+La carte est fournie dans `assets/maps/ets2-vector.json.gz` et chargée par
+`/api/ets2/vector`. Elle se zoome et se déplace au doigt, comme la carte en
+tuiles. Aucune capture d’écran ni fenêtre de jeu n’est nécessaire.
 
 ### Carte ProMods / carte personnalisée
 
 Un fichier `.scs` est une donnée de mod pour ETS2, pas un pack de tuiles :
-idash ne peut pas le lire directement. Pour utiliser ProMods, génère un pack
-de tuiles avec `ts-map` sur le PC (ETS2 + ProMods sélectionnés), taille 512 px
-si possible, puis zippe le dossier généré (`Tiles/` + `TileMapInfo.json`) en :
+idash ne le lit pas directement au démarrage. La carte vectorielle ProMods
+fournie est déjà extraite de ces fichiers. Pour régénérer une carte après une
+mise à jour de ProMods, génère un pack de tuiles avec `ts-map` sur le PC
+(ETS2 + ProMods sélectionnés), taille 512 px si possible, puis zippe le dossier
+généré (`Tiles/` + `TileMapInfo.json`) en :
 
 `custom/maps/tsmap-promods.zip`
 

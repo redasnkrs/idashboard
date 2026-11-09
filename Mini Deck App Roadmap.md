@@ -291,7 +291,7 @@ Chaque phase est utilisable seule. Ne commencer la suivante que si la précéden
 - [x] Rester en Python + PyInstaller : build Windows via GitHub Actions (Python 3.12), exe portable `idash.exe`
 - [x] Tray, démarrage Windows, instance unique, logs rotatifs, `/api/health`, watchdog de la fenêtre 7"
 - [x] Mise à jour compatible exe : helper `idash-update.exe`, migration depuis l’ancien ZIP source, préservation des données
-- [x] Ouverture automatique sur le 7", UI tactile (cibles 40–44 px), import du Route Advisor ETS2 avec carte GPS locale ou capture du GPS in-game (ProMods)
+- [x] Ouverture automatique sur le 7", UI tactile (cibles 40–44 px), import du Route Advisor ETS2 avec carte vectorielle ProMods (routes, jonctions, villes)
 - [ ] Installateur Inno Setup et signature de code
 - **Terminé quand** : quelqu'un sans Python installé peut l'installer et obtenir le tableau de bord.
 

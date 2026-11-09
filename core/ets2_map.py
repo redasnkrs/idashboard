@@ -1,4 +1,5 @@
 """Carte ETS2 locale : tuiles ts-map, sans SimHub en execution."""
+import gzip
 import json
 import logging
 import os
@@ -10,18 +11,21 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from core.config import ROOT
+from core.config import RESOURCE_DIR, ROOT
 
 log = logging.getLogger("idash.ets2map")
 MAP_DIR = ROOT / "custom" / "maps"
 ZIP_NAME = "tsmap-ets2.zip"
 PROMODS_NAME = "tsmap-promods.zip"
+VECTOR_NAME = "ets2-vector.json.gz"
 DOWNLOAD_URL = "https://www.simhubdash.com/TruckMaps/tsmap-ets2.zip"
 _lock = threading.Lock()
 _zip = None
 _zip_path = ""
 _info = None
 _tile_size = None
+_vector_info = None
+_vector_path = ""
 _download = {"running": False, "progress": 0.0, "error": "",
              "done": False, "started": 0.0}
 
@@ -46,6 +50,54 @@ def find_zip():
         if path.is_file() and path.stat().st_size > 0:
             return path
     return None
+
+
+def find_vector():
+    candidates = [RESOURCE_DIR / "assets" / "maps" / VECTOR_NAME,
+                  ROOT / "assets" / "maps" / VECTOR_NAME,
+                  MAP_DIR / VECTOR_NAME]
+    if os.environ.get("IDASH_ETS2_VECTOR"):
+        candidates.append(Path(os.environ["IDASH_ETS2_VECTOR"]))
+    for path in candidates:
+        if path.is_file() and path.stat().st_size > 0:
+            return path
+    return None
+
+
+def vector_info():
+    global _vector_info, _vector_path
+    path = find_vector()
+    if path is None:
+        return None
+    key = str(path)
+    if _vector_info is not None and _vector_path == key:
+        return _vector_info
+    try:
+        with gzip.open(path, "rt", encoding="utf-8") as handle:
+            data = json.load(handle)
+        _vector_info = {
+            "name": path.name,
+            "bounds": data.get("bounds"),
+            "roads": len(data.get("roads") or []),
+            "prefabs": len(data.get("prefabs") or []),
+            "cities": len(data.get("cities") or []),
+        }
+        _vector_path = key
+    except (OSError, ValueError) as exc:
+        log.warning("carte vectorielle ETS2 illisible: %s", exc)
+        _vector_info = None
+        _vector_path = ""
+    return _vector_info
+
+
+def vector_bytes():
+    path = find_vector()
+    if path is None:
+        return None
+    try:
+        return path.read_bytes()
+    except OSError:
+        return None
 
 
 def _open_zip():
@@ -96,12 +148,16 @@ def info():
     global _info, _tile_size
     archive = _open_zip()
     path = find_zip()
-    status = {"ok": archive is not None, "path": str(path) if path else "",
+    vector = vector_info()
+    status = {"ok": archive is not None or vector is not None,
+              "path": str(path) if path else "",
               "name": path.name if path else "",
               "tile_size": _tile_size or 256,
               "downloading": _download["running"],
               "progress": _download["progress"],
               "error": _download["error"]}
+    if vector:
+        status["vector"] = vector
     if archive is None:
         return status
     if _info is None or _tile_size is None:

@@ -7,6 +7,7 @@ ROOT = Path(SPECPATH).resolve().parent
 DIST = ROOT / "dist"
 
 datas = [
+    (str(ROOT / "assets"), "assets"),
     (str(ROOT / "dashboards"), "dashboards"),
     (str(ROOT / "home"), "home"),
     (str(ROOT / "settings"), "settings"),

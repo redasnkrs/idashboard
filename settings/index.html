@@ -125,20 +125,6 @@
            pointer-events: none; transition: .2s; max-width: 70vw; z-index: 20; }
   #toast.show { opacity: 1; transform: translate(-50%, 0); }
   #toast.err { border-color: var(--red); color: #ffb3ab; }
-  #gpsModal { position: fixed; inset: 0; z-index: 40; display: none;
-              align-items: center; justify-content: center; padding: 20px;
-              background: rgba(0,0,0,.82); }
-  #gpsModal.on { display: flex; }
-  #gpsShotWrap { position: relative; max-width: 94vw; max-height: 88vh;
-                 overflow: hidden; border: 1px solid var(--line);
-                 border-radius: 10px; cursor: crosshair; }
-  #gpsShot { display: block; max-width: 94vw; max-height: 88vh; }
-  #gpsSel { position: absolute; border: 2px solid var(--amber);
-            background: rgba(255,154,46,.18); display: none;
-            pointer-events: none; }
-  #gpsModal .hint { position: absolute; top: 14px; left: 50%;
-                    transform: translateX(-50%); background: var(--panel);
-                    padding: 7px 12px; border-radius: 7px; }
   @media (max-width: 900px) {
     .appearance { grid-template-columns: 1fr; }
     .preview-card { position: static; }
@@ -200,14 +186,14 @@ html { touch-action: manipulation; }
     <div class="card" style="max-width:760px;margin-top:18px">
       <div class="row-between">
         <div>
-          <div class="label">Carte GPS ETS2 locale</div>
+          <div class="label">Carte ETS2 / ProMods</div>
           <div class="big" id="ets2MapStatus">…</div>
         </div>
         <button id="ets2MapBtn" class="ghost" type="button">Installer la carte</button>
       </div>
       <p class="hint" id="ets2MapHint">
-        Carte réelle du jeu (tuiles ts-map), utilisée par idash sans lancer SimHub.
-        Environ 87 Mo, téléchargée une seule fois dans <code>custom/maps/</code>.
+        Carte vectorielle extraite des fichiers ProMods, avec zoom et déplacement.
+        Les tuiles ts-map restent le fallback si aucune carte vectorielle n’est installée.
       </p>
       <div class="status" id="ets2MapProgress"></div>
     </div>
@@ -223,31 +209,6 @@ html { touch-action: manipulation; }
         Nécessaire pour lire ETS2/ATS sans SimHub. Après installation, relance le jeu.
       </p>
       <div class="status" id="scsPluginProgress"></div>
-    </div>
-    <div class="card" style="max-width:760px;margin-top:18px">
-      <div class="row-between">
-        <div>
-          <div class="label">GPS ETS2 par capture écran</div>
-          <div class="big" id="gpsStatus">…</div>
-        </div>
-        <label class="checks" style="display:flex;gap:7px;align-items:center">
-          <input type="checkbox" id="gpsEnabled"> Utiliser la capture
-        </label>
-      </div>
-      <div class="games" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:12px">
-        <label class="field"><span>X</span><input id="gpsX" type="number" min="0" max="20000" step="1"></label>
-        <label class="field"><span>Y</span><input id="gpsY" type="number" min="0" max="20000" step="1"></label>
-        <label class="field"><span>Largeur</span><input id="gpsW" type="number" min="80" max="4096" step="1"></label>
-        <label class="field"><span>Hauteur</span><input id="gpsH" type="number" min="80" max="4096" step="1"></label>
-      </div>
-      <div class="actions" style="margin-top:10px">
-        <button id="gpsPick" class="ghost" type="button">Choisir la zone</button>
-        <button id="gpsSave" class="primary" type="button">Enregistrer la zone</button>
-        <span class="hint" id="gpsHint">Capture la zone du GPS in-game. Le jeu doit être en borderless/windowed.</span>
-      </div>
-      <div id="gpsPreviewWrap" style="margin-top:12px;display:none">
-        <img id="gpsPreview" alt="Capture GPS" style="max-width:100%;border:1px solid var(--line);border-radius:8px">
-      </div>
     </div>
   </section>
 
@@ -367,13 +328,6 @@ html { touch-action: manipulation; }
   </section>
 </div>
 
-<div id="gpsModal">
-  <div class="hint">Dessine un rectangle autour du GPS dans le jeu, puis relâche.</div>
-  <div id="gpsShotWrap">
-    <img id="gpsShot" alt="Écran complet">
-    <div id="gpsSel"></div>
-  </div>
-</div>
 <div id="toast"></div>
 <script>
 (() => {
@@ -715,10 +669,18 @@ html { touch-action: manipulation; }
     try {
       const info = await fetch('/api/ets2/map', { cache: 'no-store' })
         .then(r => r.json());
+      const vector = info.vector;
       const ok = !!info.ok;
-      $('ets2MapStatus').textContent = ok ? 'Installée' :
+      $('ets2MapStatus').textContent = vector ? 'ProMods vectorielle prête' :
+        ok ? 'Tuiles installées' :
         info.downloading ? 'Téléchargement…' : 'Non installée';
-      if (ok) {
+      if (vector) {
+        $('ets2MapBtn').style.display = 'none';
+        $('ets2MapHint').textContent =
+          vector.roads + ' routes, ' + vector.cities + ' villes, ' +
+          vector.prefabs + ' jonctions extraites de ProMods.';
+      } else if (ok) {
+        $('ets2MapBtn').style.display = '';
         $('ets2MapBtn').textContent = 'Vérifier';
         $('ets2MapHint').textContent = info.path || '';
       } else if (info.downloading) {
@@ -777,110 +739,6 @@ html { touch-action: manipulation; }
     }
     toast('Plugin SCS installé. Relance ETS2.');
     loadPluginInfo();
-    loadGps();
-  }
-  let gpsTimer = 0;
-  async function loadGps() {
-    try {
-      const info = await fetch('/api/ets2/gps/status', { cache: 'no-store' })
-        .then(r => r.json());
-      $('gpsEnabled').checked = !!info.enabled;
-      const r = info.region || {};
-      if (document.activeElement !== $('gpsX')) $('gpsX').value = r.x ?? 0;
-      if (document.activeElement !== $('gpsY')) $('gpsY').value = r.y ?? 0;
-      if (document.activeElement !== $('gpsW')) $('gpsW').value = r.width ?? 400;
-      if (document.activeElement !== $('gpsH')) $('gpsH').value = r.height ?? 300;
-      $('gpsStatus').textContent = info.ok ? 'Active' :
-        info.enabled ? 'En attente' : 'Désactivée';
-      $('gpsHint').textContent = info.error ? info.error :
-        (info.available ? 'Jeu en borderless/windowed requis.' : 'Windows uniquement');
-      const wrap = $('gpsPreviewWrap');
-      if (info.enabled && info.ok) {
-        wrap.style.display = '';
-        $('gpsPreview').src = '/api/ets2/gps?t=' + Date.now();
-      } else {
-        wrap.style.display = 'none';
-      }
-      if (info.enabled) {
-        clearTimeout(gpsTimer);
-        gpsTimer = setTimeout(loadGps, 1500);
-      }
-    } catch (e) {}
-  }
-  async function saveGps() {
-    const payload = {
-      enabled: $('gpsEnabled').checked,
-      x: Number($('gpsX').value || 0),
-      y: Number($('gpsY').value || 0),
-      width: Number($('gpsW').value || 400),
-      height: Number($('gpsH').value || 300),
-    };
-    try {
-      const r = await fetch('/api/ets2/gps', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await r.json();
-      if (!r.ok || !data.ok) throw new Error(data.error || 'échec');
-      toast('Zone GPS enregistrée.');
-      loadGps();
-    } catch (e) { toast('Échec GPS : ' + e.message, true); }
-  }
-  async function openGpsPicker() {
-    try {
-      const r = await fetch('/api/ets2/gps/full', { cache: 'no-store' });
-      if (!r.ok) throw new Error('capture indisponible');
-      const blob = await r.blob();
-      const img = $('gpsShot');
-      img.src = URL.createObjectURL(blob);
-      $('gpsSel').style.display = 'none';
-      $('gpsModal').classList.add('on');
-      const wrap = $('gpsShotWrap');
-      let start = null;
-      const pos = e => {
-        const b = img.getBoundingClientRect();
-        return {
-          x: Math.max(0, Math.min(b.width, e.clientX - b.left)),
-          y: Math.max(0, Math.min(b.height, e.clientY - b.top)),
-        };
-      };
-      wrap.onpointerdown = e => {
-        e.preventDefault();
-        start = pos(e);
-        const s = $('gpsSel');
-        s.style.display = '';
-        s.style.left = start.x + 'px'; s.style.top = start.y + 'px';
-        s.style.width = '0px'; s.style.height = '0px';
-        wrap.setPointerCapture(e.pointerId);
-      };
-      wrap.onpointermove = e => {
-        if (!start) return;
-        const p = pos(e);
-        const s = $('gpsSel');
-        s.style.left = Math.min(start.x, p.x) + 'px';
-        s.style.top = Math.min(start.y, p.y) + 'px';
-        s.style.width = Math.abs(p.x - start.x) + 'px';
-        s.style.height = Math.abs(p.y - start.y) + 'px';
-      };
-      wrap.onpointerup = e => {
-        if (!start) return;
-        const p = pos(e);
-        const b = img.getBoundingClientRect();
-        const sx = img.naturalWidth / b.width;
-        const sy = img.naturalHeight / b.height;
-        const x = Math.round(Math.min(start.x, p.x) * sx);
-        const y = Math.round(Math.min(start.y, p.y) * sy);
-        const w = Math.round(Math.abs(p.x - start.x) * sx);
-        const h = Math.round(Math.abs(p.y - start.y) * sy);
-        start = null;
-        if (w >= 80 && h >= 80) {
-          $('gpsX').value = x; $('gpsY').value = y;
-          $('gpsW').value = w; $('gpsH').value = h;
-          $('gpsModal').classList.remove('on');
-          toast('Zone sélectionnée. Clique Enregistrer la zone.');
-        }
-      };
-    } catch (e) { toast('Capture écran impossible : ' + e.message, true); }
   }
   async function loadGames() {
     try {
@@ -1129,9 +987,6 @@ html { touch-action: manipulation; }
     $('saveDefault').addEventListener('click', saveDefault);
     $('ets2MapBtn').addEventListener('click', installMap);
     $('scsPluginBtn').addEventListener('click', installPlugin);
-    $('gpsPick').addEventListener('click', openGpsPicker);
-    $('gpsSave').addEventListener('click', saveGps);
-    $('gpsEnabled').addEventListener('change', saveGps);
     $('keepScreenToggle').addEventListener('change', saveKeepScreen);
     $('openOnStartToggle').addEventListener('change', saveOpenOnStart);
     $('startupToggle').addEventListener('change', saveStartup);
@@ -1152,7 +1007,6 @@ html { touch-action: manipulation; }
     await loadGames();
     loadMapInfo();
     loadPluginInfo();
-    loadGps();
     const requested = new URLSearchParams(location.search).get('dashboard');
     const wanted = dashboards.find(d => d.spec === requested ||
       d.id === requested);

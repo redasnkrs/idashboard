@@ -4,6 +4,22 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.8.1] - 2026-11-09
+
+### Ajouté
+- Carte ETS2 **vectorielle ProMods** : routes, jonctions et villes extraites
+  des fichiers de carte du jeu, avec zoom, déplacement tactile et camion
+  temps réel. Plus de capture d’écran, plus de dépendance à SimHub.
+- La carte vectorielle est incluse dans `assets/maps/ets2-vector.json.gz` et
+  servie par `/api/ets2/vector`.
+
+### Supprimé
+- Le mode « GPS par capture écran » et ses réglages, remplacés par la carte
+  vectorielle.
+
+### Modifié
+- La carte en tuiles reste le fallback si la carte vectorielle est absente.
+
 ## [0.8.0] - 2026-11-09
 
 ### Ajouté

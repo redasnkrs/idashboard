@@ -23,7 +23,7 @@ _lock = threading.Lock()
 def _empty():
     return {"screen": {}, "games": {}, "default_dashboard": "",
             "keep_screen": False, "last_dashboard": "",
-            "open_on_start": True, "gps": {}}
+            "open_on_start": True}
 
 
 def load():
@@ -46,9 +46,6 @@ def load():
             state["keep_screen"] = bool(saved.get("keep_screen"))
         if "open_on_start" in saved:
             state["open_on_start"] = bool(saved.get("open_on_start"))
-        gps = _valid_gps(saved.get("gps"))
-        if gps is not None:
-            state["gps"] = gps
         last = saved.get("last_dashboard")
         if isinstance(last, str) and _SAFE_DASH.match(last):
             state["last_dashboard"] = last
@@ -194,39 +191,6 @@ def save_keep_screen(enabled):
 def last_dashboard():
     value = load().get("last_dashboard") or ""
     return value if _SAFE_DASH.match(value) else ""
-
-
-def _valid_gps(value):
-    if not isinstance(value, dict):
-        return None
-    try:
-        out = {
-            "enabled": bool(value.get("enabled")),
-            "x": max(0, min(20000, int(value.get("x", 0)))),
-            "y": max(0, min(20000, int(value.get("y", 0)))),
-            "width": max(80, min(4096, int(value.get("width", 400)))),
-            "height": max(80, min(4096, int(value.get("height", 300)))),
-        }
-    except (TypeError, ValueError):
-        return None
-    return out
-
-
-def gps():
-    value = _valid_gps(load().get("gps"))
-    return value or {"enabled": False, "x": 0, "y": 0,
-                     "width": 400, "height": 300}
-
-
-def save_gps(payload):
-    valid = _valid_gps(payload)
-    if valid is None:
-        raise ValueError("configuration GPS invalide")
-    with _lock:
-        state = load()
-        state["gps"] = valid
-        _save(state)
-        return valid
 
 
 def open_on_start():

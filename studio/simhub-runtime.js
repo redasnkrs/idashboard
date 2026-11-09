@@ -346,7 +346,8 @@
     let mapInfo = null, state = {}, lastKey = "", timer = 0;
     let follow = true, userZoom = null, viewX = null, viewY = null;
     let drag = null, pinch = null, lastTap = 0;
-    let captureEnabled = false, captureImg = null;
+    let vector = null, vectorGrid = null, vectorPrefabs = null;
+    let vectorLoading = false, vectorError = "";
 
     function schedule() {
       if (timer) return;
@@ -356,12 +357,28 @@
       }, 50);
     }
 
+    function mapBounds() {
+      if (mapInfo && mapInfo.vector && mapInfo.vector.bounds) {
+        const b = mapInfo.vector.bounds;
+        return { x1: b[0], y1: b[1], x2: b[2], y2: b[3],
+          minZoom: 0, maxZoom: 10, vector: true };
+      }
+      if (mapInfo && mapInfo.tile) {
+        return { x1: mapInfo.tile.x1, y1: mapInfo.tile.y1,
+          x2: mapInfo.tile.x2, y2: mapInfo.tile.y2,
+          minZoom: mapInfo.tile.minZoom || 0,
+          maxZoom: mapInfo.tile.maxZoom || 8, vector: false };
+      }
+      return null;
+    }
+
     function autoZoom(speed) {
-      return speed > 100 ? 7 : 8;
+      return mapBounds() && mapBounds().vector
+        ? (speed > 100 ? 7 : 8)
+        : (speed > 100 ? 7 : 8);
     }
 
     function viewCenter(t, z, speed) {
-      const span = 256 * Math.pow(2, z);
       let mx = state.map_x == null ? (t.x1 + t.x2) / 2 : Number(state.map_x);
       let my = state.map_y == null ? (t.y1 + t.y2) / 2 : Number(state.map_y);
       if (!isFinite(mx) || !isFinite(my) ||
@@ -373,44 +390,185 @@
       return { x: mx, y: my, truck: state.map_x != null };
     }
 
-    function drawCapture() {
-      ctx.fillStyle = "#111";
-      ctx.fillRect(0, 0, W, H);
-      if (!captureImg) {
-        captureImg = new Image();
-        captureImg.onload = schedule;
-        captureImg.onerror = schedule;
-      }
-      if (captureImg.complete && captureImg.naturalWidth) {
-        const scale = Math.min(W / captureImg.naturalWidth,
-          H / captureImg.naturalHeight);
-        const iw = captureImg.naturalWidth * scale;
-        const ih = captureImg.naturalHeight * scale;
-        ctx.drawImage(captureImg, (W - iw) / 2, (H - ih) / 2, iw, ih);
-      } else {
-        ctx.fillStyle = "#8a8272";
-        ctx.font = "16px sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText("Capture GPS en attente", W / 2, H / 2);
-      }
+    function drawTruck(center, t, left, top, span, worldW, worldH) {
+      if (!center.truck) return;
+      const tx = (Number(state.map_x) - t.x1) / worldW * span - left;
+      const ty = (Number(state.map_y) - t.y1) / worldH * span - top;
+      if (tx < -20 || tx > W + 20 || ty < -20 || ty > H + 20) return;
+      ctx.save();
+      ctx.translate(tx, ty);
+      ctx.rotate((Number(state.map_heading) || 0) * Math.PI / 180);
+      ctx.beginPath();
+      ctx.moveTo(0, -12);
+      ctx.lineTo(8, 10);
+      ctx.lineTo(0, 6);
+      ctx.lineTo(-8, 10);
+      ctx.closePath();
+      ctx.fillStyle = "#ff5a2a";
+      ctx.fill();
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
     }
 
-    function draw() {
-      ctx.fillStyle = "#141414";
+    function buildGrid(rows, cell, kind) {
+      const grid = new Map();
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        let x0, y0, x1, y1;
+        if (kind === "road") {
+          x0 = Math.min(r[0], r[2]); x1 = Math.max(r[0], r[2]);
+          y0 = Math.min(r[1], r[3]); y1 = Math.max(r[1], r[3]);
+        } else {
+          x0 = x1 = r[0]; y0 = y1 = r[1];
+        }
+        const cx0 = Math.floor(x0 / cell), cx1 = Math.floor(x1 / cell);
+        const cy0 = Math.floor(y0 / cell), cy1 = Math.floor(y1 / cell);
+        for (let cx = cx0; cx <= cx1; cx++) {
+          for (let cy = cy0; cy <= cy1; cy++) {
+            const key = cx + "," + cy;
+            let arr = grid.get(key);
+            if (!arr) { arr = []; grid.set(key, arr); }
+            arr.push(i);
+          }
+        }
+      }
+      return grid;
+    }
+
+    function loadVector() {
+      if (!mapInfo || !mapInfo.vector || vectorLoading || vector) return;
+      vectorLoading = true;
+      vectorError = "";
+      fetch("/api/ets2/vector", { cache: "no-store" })
+        .then(r => {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(data => {
+          vector = data;
+          vectorGrid = buildGrid(data.roads || [], 4096, "road");
+          vectorPrefabs = buildGrid(data.prefabs || [], 4096, "point");
+          schedule();
+        })
+        .catch(err => {
+          vectorError = String(err && err.message || err);
+          schedule();
+        })
+        .finally(() => { vectorLoading = false; });
+    }
+
+    function drawVector() {
+      const t = mapBounds();
+      const speed = Math.abs(Number(state.v) || 0);
+      let z = userZoom == null ? autoZoom(speed) : userZoom;
+      z = Math.max(t.minZoom || 0, Math.min(t.maxZoom || 10, z));
+      const span = 256 * Math.pow(2, z);
+      const worldW = (t.x2 - t.x1) || 1;
+      const worldH = (t.y2 - t.y1) || 1;
+      const center = viewCenter(t, z, speed);
+      if (follow || viewX == null || viewY == null) {
+        viewX = center.x;
+        viewY = center.y;
+      }
+      const px = (viewX - t.x1) / worldW * span;
+      const py = (viewY - t.y1) / worldH * span;
+      const left = px - W / 2;
+      const top = py - H / 2;
+      const mppX = worldW / span, mppY = worldH / span;
+      const wx0 = t.x1 + left * mppX, wx1 = t.x1 + (left + W) * mppX;
+      const wy0 = t.y1 + top * mppY, wy1 = t.y1 + (top + H) * mppY;
+
+      ctx.fillStyle = "#1a1917";
       ctx.fillRect(0, 0, W, H);
-      if (captureEnabled) {
-        drawCapture();
-        return;
+
+      const cell = 4096;
+      const cx0 = Math.floor(wx0 / cell), cx1 = Math.floor(wx1 / cell);
+      const cy0 = Math.floor(wy0 / cell), cy1 = Math.floor(wy1 / cell);
+      ctx.strokeStyle = z >= 9 ? "#d6b274" : "#b99255";
+      ctx.lineWidth = z >= 9 ? 2 : (z >= 7 ? 1.5 : 1);
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      const drawn = new Set();
+      for (let cx = cx0; cx <= cx1; cx++) {
+        for (let cy = cy0; cy <= cy1; cy++) {
+          const ids = vectorGrid && vectorGrid.get(cx + "," + cy);
+          if (!ids) continue;
+          for (const i of ids) {
+            if (drawn.has(i)) continue;
+            drawn.add(i);
+            const r = vector.roads[i];
+            const ax = (r[0] - t.x1) / worldW * span - left;
+            const ay = (r[1] - t.y1) / worldH * span - top;
+            const bx = (r[2] - t.x1) / worldW * span - left;
+            const by = (r[3] - t.y1) / worldH * span - top;
+            if (Math.max(ax, bx) < 0 || Math.min(ax, bx) > W ||
+                Math.max(ay, by) < 0 || Math.min(ay, by) > H) continue;
+            ctx.moveTo(ax, ay);
+            ctx.lineTo(bx, by);
+          }
+        }
       }
-      if (!mapInfo || !mapInfo.ok || !mapInfo.tile) {
-        ctx.fillStyle = "#8a8272";
-        ctx.font = "16px sans-serif";
+      ctx.stroke();
+
+      if (z >= 5 && vectorPrefabs) {
+        ctx.strokeStyle = z >= 9 ? "#8c7446" : "#6f5c38";
+        ctx.lineWidth = z >= 9 ? 1.6 : 1;
+        for (let cx = cx0; cx <= cx1; cx++) {
+          for (let cy = cy0; cy <= cy1; cy++) {
+            const ids = vectorPrefabs.get(cx + "," + cy);
+            if (!ids) continue;
+            for (const i of ids) {
+              const p = vector.prefabs[i];
+              const pts = p[3] || [];
+              if (pts.length < 2) continue;
+              const cx = (p[0] - t.x1) / worldW * span - left;
+              const cy = (p[1] - t.y1) / worldH * span - top;
+              ctx.beginPath();
+              let first = true;
+              for (const q of pts) {
+                const sx = (q[0] - t.x1) / worldW * span - left;
+                const sy = (q[1] - t.y1) / worldH * span - top;
+                if (first) { ctx.moveTo(sx, sy); first = false; }
+                else ctx.lineTo(sx, sy);
+              }
+              for (const q of pts) {
+                const sx = (q[0] - t.x1) / worldW * span - left;
+                const sy = (q[1] - t.y1) / worldH * span - top;
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(sx, sy);
+              }
+              ctx.stroke();
+            }
+          }
+        }
+      }
+
+      if (z >= 5 && vector.cities) {
+        const seen = new Set();
+        ctx.font = Math.max(10, Math.min(18, 8 + z * 1.1)) + "px sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("Carte ETS2 non installée", W / 2, H / 2 - 8);
-        ctx.font = "13px sans-serif";
-        ctx.fillText("Réglages → Jeux → Installer la carte", W / 2, H / 2 + 18);
-        return;
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgba(0,0,0,.75)";
+        ctx.fillStyle = "#f2d7a0";
+        for (const c of vector.cities) {
+          const name = String(c[2] || "").replace(/_/g, " ");
+          if (!name || seen.has(name)) continue;
+          const sx = (c[0] - t.x1) / worldW * span - left;
+          const sy = (c[1] - t.y1) / worldH * span - top;
+          if (sx < -40 || sx > W + 40 || sy < -20 || sy > H + 20) continue;
+          seen.add(name);
+          const label = name.charAt(0).toUpperCase() + name.slice(1);
+          ctx.strokeText(label, sx, sy - 8);
+          ctx.fillText(label, sx, sy - 8);
+        }
       }
+
+      drawTruck(center, t, left, top, span, worldW, worldH);
+    }
+
+    function drawTiles() {
       const t = mapInfo.tile;
       const speed = Math.abs(Number(state.v) || 0);
       let z = userZoom == null ? autoZoom(speed) : userZoom;
@@ -455,26 +613,35 @@
           }
         }
       }
-      if (center.truck) {
-        const tx = (Number(state.map_x) - t.x1) / worldW * span - left;
-        const ty = (Number(state.map_y) - t.y1) / worldH * span - top;
-        if (tx >= -20 && tx <= W + 20 && ty >= -20 && ty <= H + 20) {
-          ctx.save();
-          ctx.translate(tx, ty);
-          ctx.rotate((Number(state.map_heading) || 0) * Math.PI / 180);
-          ctx.beginPath();
-          ctx.moveTo(0, -12);
-          ctx.lineTo(8, 10);
-          ctx.lineTo(0, 6);
-          ctx.lineTo(-8, 10);
-          ctx.closePath();
-          ctx.fillStyle = "#ff5a2a";
-          ctx.fill();
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 2;
-          ctx.stroke();
-          ctx.restore();
+      drawTruck(center, t, left, top, span, worldW, worldH);
+    }
+
+    function draw() {
+      ctx.fillStyle = "#141414";
+      ctx.fillRect(0, 0, W, H);
+      const t = mapBounds();
+      if (!t) {
+        ctx.fillStyle = "#8a8272";
+        ctx.font = "16px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Carte ETS2 non installée", W / 2, H / 2 - 8);
+        ctx.font = "13px sans-serif";
+        ctx.fillText("Réglages → Jeux → Installer la carte", W / 2, H / 2 + 18);
+        return;
+      }
+      if (t.vector) {
+        if (!vector) {
+          ctx.fillStyle = "#8a8272";
+          ctx.font = "16px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(vectorError ? "Carte vectorielle indisponible"
+            : "Chargement carte vectorielle…", W / 2, H / 2);
+          if (vectorError && mapInfo.tile) drawTiles();
+          return;
         }
+        drawVector();
+      } else {
+        drawTiles();
       }
     }
 
@@ -486,9 +653,9 @@
     }
 
     function worldPerPixel(z) {
-      if (!mapInfo || !mapInfo.tile) return 1;
-      const t = mapInfo.tile;
-      const tileSize = mapInfo.tile_size || 256;
+      const t = mapBounds();
+      if (!t) return { x: 1, y: 1 };
+      const tileSize = t.vector ? 256 : (mapInfo.tile_size || 256);
       const span = tileSize * Math.pow(2, z);
       return {
         x: (t.x2 - t.x1) / span,
@@ -497,12 +664,12 @@
     }
 
     function zoomBy(delta) {
-      if (!mapInfo || !mapInfo.tile) return;
-      const t = mapInfo.tile;
+      const t = mapBounds();
+      if (!t) return;
       const speed = Math.abs(Number(state.v) || 0);
       const base = userZoom == null ? autoZoom(speed) : userZoom;
-      const next = Math.max(t.minZoom || 0,
-        Math.min((t.maxZoom || 8) + 2, base + delta));
+      const max = t.vector ? (t.maxZoom || 10) : (t.maxZoom || 8) + 2;
+      const next = Math.max(t.minZoom || 0, Math.min(max, base + delta));
       if (next !== base) {
         userZoom = next;
         schedule();
@@ -523,7 +690,7 @@
       } else if (e.touches.length === 1) {
         drag = { x: e.touches[0].clientX, y: e.touches[0].clientY };
         if (follow) {
-          const t = mapInfo && mapInfo.tile;
+          const t = mapBounds();
           if (t) {
             const speed = Math.abs(Number(state.v) || 0);
             const z = userZoom == null ? autoZoom(speed) : userZoom;
@@ -539,15 +706,16 @@
     canvas.addEventListener("touchmove", e => {
       e.preventDefault();
       e.stopPropagation();
-      if (!mapInfo || !mapInfo.tile) return;
+      const t = mapBounds();
+      if (!t) return;
       if (e.touches.length === 2 && pinch) {
         const a = e.touches[0], b = e.touches[1];
         const dist = Math.hypot(a.clientX - b.clientX,
           a.clientY - b.clientY);
         if (pinch.dist > 0) {
-          const z = Math.max(mapInfo.tile.minZoom || 0,
-            Math.min((mapInfo.tile.maxZoom || 8) + 2,
-              Math.round(pinch.zoom + Math.log2(dist / pinch.dist))));
+          const max = t.vector ? (t.maxZoom || 10) : (t.maxZoom || 8) + 2;
+          const z = Math.max(t.minZoom || 0,
+            Math.min(max, Math.round(pinch.zoom + Math.log2(dist / pinch.dist))));
           if (z !== userZoom) {
             userZoom = z;
             schedule();
@@ -595,35 +763,11 @@
       zoomBy(e.deltaY < 0 ? 1 : -1);
     }, { passive: false });
 
-    function loadCaptureStatus() {
-      fetch("/api/ets2/gps/status", { cache: "no-store" })
-        .then(r => r.json())
-        .then(info => {
-          captureEnabled = !!info.enabled;
-          if (captureEnabled && captureImg) {
-            captureImg.src = "/api/ets2/gps?t=" + Date.now();
-          }
-          schedule();
-        })
-        .catch(() => {});
-    }
-
     loadETSMapInfo().then(info => {
       mapInfo = info;
+      if (info && info.vector) loadVector();
       schedule();
     });
-    loadCaptureStatus();
-    setInterval(loadCaptureStatus, 3000);
-    setInterval(() => {
-      if (captureEnabled) {
-        if (!captureImg) {
-          captureImg = new Image();
-          captureImg.onload = schedule;
-          captureImg.onerror = schedule;
-        }
-        captureImg.src = "/api/ets2/gps?t=" + Date.now();
-      }
-    }, 120);
     setInterval(schedule, 500);
     updates.push(update);
     update({});
