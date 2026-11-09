@@ -346,6 +346,7 @@
     let mapInfo = null, state = {}, lastKey = "", timer = 0;
     let follow = true, userZoom = null, viewX = null, viewY = null;
     let drag = null, pinch = null, lastTap = 0;
+    let captureEnabled = false, captureImg = null;
 
     function schedule() {
       if (timer) return;
@@ -372,9 +373,35 @@
       return { x: mx, y: my, truck: state.map_x != null };
     }
 
+    function drawCapture() {
+      ctx.fillStyle = "#111";
+      ctx.fillRect(0, 0, W, H);
+      if (!captureImg) {
+        captureImg = new Image();
+        captureImg.onload = schedule;
+        captureImg.onerror = schedule;
+      }
+      if (captureImg.complete && captureImg.naturalWidth) {
+        const scale = Math.min(W / captureImg.naturalWidth,
+          H / captureImg.naturalHeight);
+        const iw = captureImg.naturalWidth * scale;
+        const ih = captureImg.naturalHeight * scale;
+        ctx.drawImage(captureImg, (W - iw) / 2, (H - ih) / 2, iw, ih);
+      } else {
+        ctx.fillStyle = "#8a8272";
+        ctx.font = "16px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Capture GPS en attente", W / 2, H / 2);
+      }
+    }
+
     function draw() {
       ctx.fillStyle = "#141414";
       ctx.fillRect(0, 0, W, H);
+      if (captureEnabled) {
+        drawCapture();
+        return;
+      }
       if (!mapInfo || !mapInfo.ok || !mapInfo.tile) {
         ctx.fillStyle = "#8a8272";
         ctx.font = "16px sans-serif";
@@ -568,10 +595,35 @@
       zoomBy(e.deltaY < 0 ? 1 : -1);
     }, { passive: false });
 
+    function loadCaptureStatus() {
+      fetch("/api/ets2/gps/status", { cache: "no-store" })
+        .then(r => r.json())
+        .then(info => {
+          captureEnabled = !!info.enabled;
+          if (captureEnabled && captureImg) {
+            captureImg.src = "/api/ets2/gps?t=" + Date.now();
+          }
+          schedule();
+        })
+        .catch(() => {});
+    }
+
     loadETSMapInfo().then(info => {
       mapInfo = info;
       schedule();
     });
+    loadCaptureStatus();
+    setInterval(loadCaptureStatus, 3000);
+    setInterval(() => {
+      if (captureEnabled) {
+        if (!captureImg) {
+          captureImg = new Image();
+          captureImg.onload = schedule;
+          captureImg.onerror = schedule;
+        }
+        captureImg.src = "/api/ets2/gps?t=" + Date.now();
+      }
+    }, 120);
     setInterval(schedule, 500);
     updates.push(update);
     update({});

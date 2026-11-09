@@ -62,6 +62,16 @@ class AppSettingsTest(unittest.TestCase):
         self.assertFalse(app_settings.save_open_on_start(False))
         self.assertFalse(app_settings.open_on_start())
 
+    def test_gps_config(self):
+        self.assertFalse(app_settings.gps()["enabled"])
+        saved = app_settings.save_gps({
+            "enabled": True, "x": 10, "y": 20,
+            "width": 640, "height": 480})
+        self.assertTrue(saved["enabled"])
+        self.assertEqual(640, app_settings.gps()["width"])
+        with self.assertRaises(ValueError):
+            app_settings.save_gps("bad")
+
     def test_pick_7(self):
         monitors = [
             {"width": 2560, "height": 1440, "primary": True, "x": 0, "y": 0},

@@ -4,6 +4,18 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.8.0] - 2026-11-09
+
+### Ajouté
+- Mode **GPS ETS2 par capture écran** : capture la zone du GPS in-game et
+  l’affiche dans le Route Advisor. ProMods et itinéraire sont donc visibles
+  exactement comme dans le jeu, sans pack de tuiles.
+- Sélecteur de zone dans `/settings` à partir d’une capture du bureau.
+- Réglage X/Y/largeur/hauteur + activation de la capture.
+
+### Modifié
+- La carte en tuiles reste le fallback quand la capture est désactivée.
+
 ## [0.7.9] - 2026-11-09
 
 ### Ajouté

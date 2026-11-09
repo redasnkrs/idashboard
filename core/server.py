@@ -27,9 +27,10 @@ import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
-from core import (app_control, app_settings, catalog, ets2_map, game, health,
-                  launcher, media, pump, screens, scs_plugin, simhub,
-                  simhub_faithful, startup, studio, themes, updater)
+from core import (app_control, app_settings, catalog, ets2_map, game,
+                  gps_capture, health, launcher, media, pump, screens,
+                  scs_plugin, simhub, simhub_faithful, startup, studio,
+                  themes, updater)
 from core.config import (DEFAULT_DASHBOARD, HOME_FILE, PORT, SETTINGS_FILE,
                          STREAM_HZ, STUDIO_DIR, UPDATE_FILE, VERSION,
                          dashboard_asset, dashboard_file, dashboard_manifest,
@@ -141,6 +142,21 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/ets2/plugin":
             self._send(json.dumps(scs_plugin.status()).encode(),
                        "application/json")
+        elif path == "/api/ets2/gps/status":
+            self._send(json.dumps(gps_capture.status()).encode(),
+                       "application/json")
+        elif path == "/api/ets2/gps/full":
+            data = gps_capture.full()
+            if not data:
+                self.send_error(404)
+            else:
+                self._send(data, "image/jpeg")
+        elif path == "/api/ets2/gps":
+            data = gps_capture.frame()
+            if not data:
+                self.send_error(404)
+            else:
+                self._send(data, "image/jpeg")
         elif path.startswith("/api/ets2/map/tile/"):
             self._ets2_map_tile(path[len("/api/ets2/map/tile/"):])
         elif path == "/api/media":
@@ -258,6 +274,19 @@ class Handler(BaseHTTPRequestHandler):
             self._save_startup()
         elif path == "/api/ets2/map/download":
             self._send(json.dumps({"ok": ets2_map.start_download()}).encode(),
+                       "application/json")
+        elif path == "/api/ets2/gps":
+            try:
+                payload = self._read_json()
+                saved = app_settings.save_gps(payload)
+                if saved.get("enabled"):
+                    gps_capture.start()
+            except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                self._send(json.dumps({"ok": False, "error": str(exc)}).encode(),
+                           "application/json", 400)
+                return
+            self._send(json.dumps({"ok": True,
+                                   "gps": gps_capture.status()}).encode(),
                        "application/json")
         elif path == "/api/ets2/plugin/install":
             try:

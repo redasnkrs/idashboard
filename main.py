@@ -14,8 +14,8 @@ import sys
 import threading
 import time
 
-from core import (app_control, app_settings, instance, launcher, media, tray,
-                  watchdog)
+from core import (app_control, app_settings, gps_capture, instance, launcher,
+                  media, tray, watchdog)
 from core.config import PORT, VERSION
 from core.logging_setup import setup as setup_logging
 from core.pump import poll_loop
@@ -101,6 +101,7 @@ def main(argv=None):
     threading.Thread(target=poll_loop, args=(source, args.debug),
                      daemon=True).start()
     media.start()
+    gps_capture.start()
     server = serve(args.port)
     port = server.server_address[1]
     watchdog.start()
@@ -132,6 +133,7 @@ def main(argv=None):
     finally:
         watchdog.stop()
         tray.stop()
+        gps_capture.stop()
         instance.release()
         log.info("idash arrete")
     return 0

@@ -153,6 +153,21 @@ plugin open-source `scs-sdk-plugin` : `/settings` → Jeux → **Installer le
 plugin**. Le DLL va dans `bin/win_x64/plugins` ; relance ensuite ETS2.
 Si ETS2 n’est pas détecté, renseigne son chemin dans la même page.
 
+### GPS ETS2 par capture écran (ProMods, itinéraire)
+
+C’est la solution pour avoir **exactement la carte du jeu**, y compris ProMods
+et le tracé de navigation, sans pack de tuiles :
+
+1. Mets ETS2 en **borderless/windowed** (pas en plein écran exclusif).
+2. Ouvre `/settings` → **Jeux** → **GPS ETS2 par capture écran**.
+3. Clique **Choisir la zone**, dessine un rectangle autour du GPS in-game,
+   puis **Enregistrer la zone**.
+4. Coche **Utiliser la capture**.
+
+La zone carte du Route Advisor affiche alors la capture du GPS réel. Le zoom
+est celui du GPS du jeu ; idash ne redimensionne pas la source. Sans capture,
+idash retombe sur la carte en tuiles.
+
 ### Carte ProMods / carte personnalisée
 
 Un fichier `.scs` est une donnée de mod pour ETS2, pas un pack de tuiles :

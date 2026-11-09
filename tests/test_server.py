@@ -588,6 +588,20 @@ class ServerTest(unittest.TestCase):
         self.assertFalse(json.loads(body)["open_on_start"])
         self.assertFalse(app_settings.open_on_start())
 
+    def test_gps_capture_api(self):
+        status, _, body = self.get("/api/ets2/gps/status")
+        self.assertEqual(200, status)
+        info = json.loads(body)
+        self.assertIn("enabled", info)
+        self.assertIn("region", info)
+        status, body = self.post("/api/ets2/gps", {
+            "enabled": False, "x": 0, "y": 0,
+            "width": 400, "height": 300})
+        self.assertEqual(200, status)
+        self.assertTrue(json.loads(body)["ok"])
+        status, _, _ = self.get("/api/ets2/gps")
+        self.assertEqual(404, status)
+
     def test_settings_page(self):
         status, ctype, body = self.get("/settings")
         self.assertEqual(200, status)
