@@ -153,6 +153,19 @@ plugin open-source `scs-sdk-plugin` : `/settings` → Jeux → **Installer le
 plugin**. Le DLL va dans `bin/win_x64/plugins` ; relance ensuite ETS2.
 Si ETS2 n’est pas détecté, renseigne son chemin dans la même page.
 
+### Carte ProMods / carte personnalisée
+
+Un fichier `.scs` est une donnée de mod pour ETS2, pas un pack de tuiles :
+idash ne peut pas le lire directement. Pour utiliser ProMods, génère un pack
+de tuiles avec `ts-map` sur le PC (ETS2 + ProMods sélectionnés), taille 512 px
+si possible, puis zippe le dossier généré (`Tiles/` + `TileMapInfo.json`) en :
+
+`custom/maps/tsmap-promods.zip`
+
+idash le détecte automatiquement avant la carte de base. Le format 512 px est
+supporté, ce qui donne un zoom plus net qu’avec les tuiles 256 px. Les tuiles
+supplémentaires au-delà du zoom natif restent des agrandissements.
+
 Les fichiers générés sont dans `custom/` (ignoré par git) :
 `custom/layouts/`, `custom/previews/`, `custom/icons/`,
 `custom/imports/`. Le runtime commun est

@@ -4,6 +4,17 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.7.9] - 2026-11-09
+
+### Ajouté
+- Support d’un pack de tuiles personnalisé `custom/maps/tsmap-promods.zip`,
+  détecté automatiquement avant la carte de base.
+- Support des tuiles 512 px pour une meilleure qualité de carte.
+- Les fichiers `.scs` sont ignorés par git (mods trop volumineux).
+
+### Modifié
+- La documentation explique comment générer une carte ProMods avec ts-map.
+
 ## [0.7.8] - 2026-11-09
 
 ### Modifié

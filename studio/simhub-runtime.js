@@ -388,10 +388,11 @@
       const speed = Math.abs(Number(state.v) || 0);
       let z = userZoom == null ? autoZoom(speed) : userZoom;
       z = Math.max(t.minZoom || 0, Math.min((t.maxZoom || 8) + 2, z));
+      const tileSize = mapInfo.tile_size || 256;
       const baseZ = Math.min(z, t.maxZoom || 8);
       const tileScale = Math.pow(2, z - baseZ);
-      const tilePx = 256 * tileScale;
-      const span = 256 * Math.pow(2, z);
+      const tilePx = tileSize * tileScale;
+      const span = tileSize * Math.pow(2, z);
       const worldW = (t.x2 - t.x1) || 1;
       const worldH = (t.y2 - t.y1) || 1;
       const center = viewCenter(t, z, speed);
@@ -460,7 +461,8 @@
     function worldPerPixel(z) {
       if (!mapInfo || !mapInfo.tile) return 1;
       const t = mapInfo.tile;
-      const span = 256 * Math.pow(2, z);
+      const tileSize = mapInfo.tile_size || 256;
+      const span = tileSize * Math.pow(2, z);
       return {
         x: (t.x2 - t.x1) / span,
         y: (t.y2 - t.y1) / span,

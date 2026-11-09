@@ -40,6 +40,25 @@ class Ets2MapTest(unittest.TestCase):
         self.assertEqual(b"PNG", ets2_map.tile(0, 0, 0))
         self.assertIsNone(ets2_map.tile(8, 255, 255))
 
+    def test_promods_512_tile_size(self):
+        path = ets2_map.MAP_DIR / ets2_map.PROMODS_NAME
+        png = (b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" +
+               (512).to_bytes(4, "big") + (512).to_bytes(4, "big") +
+               b"\x08\x06\x00\x00\x00")
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr("tsmap-promods/TileMapInfo.json", json.dumps({
+                "x1": -100, "x2": 100, "y1": -100, "y2": 100,
+                "minZoom": 0, "maxZoom": 8}))
+            archive.writestr("tsmap-promods/Tiles/0/0/0.png", png)
+        ets2_map._zip = None
+        ets2_map._zip_path = ""
+        ets2_map._info = None
+        ets2_map._tile_size = None
+        info = ets2_map.info()
+        self.assertTrue(info["ok"])
+        self.assertEqual("tsmap-promods.zip", info["name"])
+        self.assertEqual(512, info["tile_size"])
+
     def test_missing_tile(self):
         self.assertIsNone(ets2_map.tile(1, 0, 0))
 

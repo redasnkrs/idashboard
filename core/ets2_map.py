@@ -15,16 +15,19 @@ from core.config import ROOT
 log = logging.getLogger("idash.ets2map")
 MAP_DIR = ROOT / "custom" / "maps"
 ZIP_NAME = "tsmap-ets2.zip"
+PROMODS_NAME = "tsmap-promods.zip"
 DOWNLOAD_URL = "https://www.simhubdash.com/TruckMaps/tsmap-ets2.zip"
 _lock = threading.Lock()
 _zip = None
 _zip_path = ""
 _info = None
+_tile_size = None
 _download = {"running": False, "progress": 0.0, "error": "",
              "done": False, "started": 0.0}
 
 
 def _candidates():
+    yield MAP_DIR / PROMODS_NAME
     yield MAP_DIR / ZIP_NAME
     if os.environ.get("IDASH_ETS2_MAP"):
         yield Path(os.environ["IDASH_ETS2_MAP"])
@@ -71,31 +74,52 @@ def _open_zip():
 
 def _root_prefix(archive):
     names = archive.namelist()
-    if any(n.startswith("tsmap-ets2/") for n in names[:200]):
-        return "tsmap-ets2/"
+    for name in names[:1000]:
+        if name.startswith("Tiles/"):
+            return ""
+        marker = "/Tiles/"
+        if marker in name:
+            return name.split(marker, 1)[0] + "/"
     return ""
 
 
+def _png_size(data):
+    if not data or len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n":
+        return 256
+    try:
+        return max(64, int.from_bytes(data[16:20], "big"))
+    except ValueError:
+        return 256
+
+
 def info():
-    global _info
+    global _info, _tile_size
     archive = _open_zip()
     path = find_zip()
     status = {"ok": archive is not None, "path": str(path) if path else "",
+              "name": path.name if path else "",
+              "tile_size": _tile_size or 256,
               "downloading": _download["running"],
               "progress": _download["progress"],
               "error": _download["error"]}
     if archive is None:
         return status
-    if _info is None:
+    if _info is None or _tile_size is None:
         try:
             with _lock:
                 prefix = _root_prefix(archive)
                 raw = archive.read(prefix + "TileMapInfo.json")
+                try:
+                    _tile_size = _png_size(archive.read(
+                        prefix + "Tiles/0/0/0.png"))
+                except (OSError, KeyError, ValueError):
+                    _tile_size = 256
             _info = json.loads(raw.decode("utf-8-sig"))
         except (OSError, KeyError, ValueError):
             _info = None
     if _info:
         status["tile"] = _info
+        status["tile_size"] = _tile_size or 256
         status["min_zoom"] = _info.get("minZoom", 0)
         status["max_zoom"] = _info.get("maxZoom", 8)
     return status
@@ -142,7 +166,7 @@ def _download_worker():
                         _download["progress"] = min(0.99, done / (90 * 1024 * 1024))
             tmp.replace(target)
         with _lock:
-            global _zip, _zip_path, _info
+            global _zip, _zip_path, _info, _tile_size
             try:
                 if _zip is not None:
                     _zip.close()
@@ -151,6 +175,7 @@ def _download_worker():
             _zip = None
             _zip_path = ""
             _info = None
+            _tile_size = None
         _download.update({"running": False, "progress": 1.0, "done": True})
         log.info("carte ETS2 installee: %s", target)
     except Exception as exc:
@@ -185,13 +210,14 @@ def import_from_simhub():
         MAP_DIR.mkdir(parents=True, exist_ok=True)
         try:
             shutil.copy2(path, target)
-            global _zip, _zip_path, _info
+            global _zip, _zip_path, _info, _tile_size
             with _lock:
                 if _zip is not None:
                     _zip.close()
                 _zip = None
                 _zip_path = ""
                 _info = None
+                _tile_size = None
             return str(target)
         except OSError as exc:
             return str(exc)
