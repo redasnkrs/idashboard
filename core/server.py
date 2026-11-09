@@ -278,6 +278,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._send(json.dumps({"ok": True, "ambient": saved}).encode(),
                        "application/json")
+        elif path == "/api/ambient/diagnose":
+            self._send(json.dumps({"ok": True, "diagnose": ambient.diagnose()}).encode(),
+                       "application/json")
         elif path == "/api/ambient/test":
             try:
                 payload = self._read_json()

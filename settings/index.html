@@ -253,8 +253,10 @@ html { touch-action: manipulation; }
         <button id="ambientTestRight" class="ghost" type="button">Test droite</button>
         <button id="ambientTestRpm" class="ghost" type="button">Test régime</button>
         <button id="ambientTestFlag" class="ghost" type="button">Test drapeau</button>
+        <button id="ambientDiagBtn" class="ghost" type="button">Diagnostic USB</button>
       </div>
       <div class="status" id="ambientProgress"></div>
+      <pre id="ambientDiag" style="display:none;max-height:180px;overflow:auto;font-size:11px;margin-top:8px"></pre>
     </div>
     <div class="card" style="max-width:760px;margin-top:18px">
       <div class="row-between">
@@ -786,6 +788,18 @@ html { touch-action: manipulation; }
       loadAmbient();
     } catch (e) { toast('Échec ambient : ' + e.message, true); }
   }
+  async function ambientDiagnose() {
+    const box = $('ambientDiag');
+    box.style.display = '';
+    box.textContent = 'Diagnostic…';
+    try {
+      const r = await fetch('/api/ambient/diagnose', { method: 'POST' });
+      const data = await r.json();
+      box.textContent = JSON.stringify(data.diagnose || data, null, 2);
+    } catch (e) {
+      box.textContent = 'Erreur diagnostic : ' + e.message;
+    }
+  }
   async function testAmbient(kind) {
     try {
       await fetch('/api/ambient/test', {
@@ -1182,6 +1196,7 @@ html { touch-action: manipulation; }
     $('ambientTestRight').addEventListener('click', () => testAmbient('right'));
     $('ambientTestRpm').addEventListener('click', () => testAmbient('rpm'));
     $('ambientTestFlag').addEventListener('click', () => testAmbient('flag'));
+    $('ambientDiagBtn').addEventListener('click', ambientDiagnose);
     $('scsPluginBtn').addEventListener('click', installPlugin);
     $('keepScreenToggle').addEventListener('change', saveKeepScreen);
     $('openOnStartToggle').addEventListener('change', saveOpenOnStart);

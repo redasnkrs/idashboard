@@ -196,7 +196,10 @@ def _connect():
         for info in ordered:
             try:
                 device = hid.device()
-                device.open_path(info["path"])
+                try:
+                    device.open_path(info["path"])
+                except Exception:
+                    device.open(VID, PID)
                 device.set_nonblocking(1)
                 _device = device
                 _transport = "hid"
@@ -393,6 +396,54 @@ def test(kind="left", seconds=3.0):
     _test = kind if kind in ("left", "right", "rpm", "flag") else None
     _test_until = time.monotonic() + max(1.0, min(10.0, seconds))
     start()
+
+
+def diagnose():
+    """Ouvre chaque interface HID et rapporte l'erreur exacte."""
+    result = {"hid": [], "serial": []}
+    if HID_AVAILABLE:
+        try:
+            devices = hid.enumerate(VID, PID) or []
+        except Exception as exc:
+            result["hid_error"] = str(exc)
+            devices = []
+        for info in devices:
+            item = {
+                "path": str(info.get("path", "")),
+                "interface": info.get("interface_number"),
+                "usage_page": info.get("usage_page"),
+                "usage": info.get("usage"),
+                "product": info.get("product_string"),
+            }
+            try:
+                dev = hid.device()
+                try:
+                    dev.open_path(info["path"])
+                except Exception:
+                    dev.open(VID, PID)
+                dev.set_nonblocking(1)
+                item["opened"] = True
+                try:
+                    dev.close()
+                except Exception:
+                    pass
+            except Exception as exc:
+                item["opened"] = False
+                item["open_error"] = str(exc)
+            result["hid"].append(item)
+    if SERIAL_AVAILABLE:
+        for port in _serial_candidates():
+            item = {"port": port}
+            try:
+                ser = serial.Serial(port, 115200, timeout=0.2,
+                                    write_timeout=0.5)
+                item["opened"] = True
+                ser.close()
+            except Exception as exc:
+                item["opened"] = False
+                item["open_error"] = str(exc)
+            result["serial"].append(item)
+    return result
 
 
 def status():

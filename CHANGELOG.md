@@ -4,6 +4,14 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.9.6] - 2026-11-09
+
+### Ajouté
+- Bouton **Diagnostic USB** dans Ambient lights : liste les interfaces HID
+  et affiche l’erreur exacte d’ouverture (`access denied`, interface occupée,
+  etc.).
+- Fallback d’ouverture HID par VID/PID si l’ouverture par chemin échoue.
+
 ## [0.9.5] - 2026-11-09
 
 ### Corrigé
