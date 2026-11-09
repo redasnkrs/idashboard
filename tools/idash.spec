@@ -45,6 +45,14 @@ try:
 except Exception:
     pass
 
+try:
+    data, bins, hidden = collect_all("serial")
+    datas += data
+    binaries += bins
+    hiddenimports += hidden
+except Exception:
+    pass
+
 a = Analysis(
     [str(ROOT / "main.py")],
     pathex=[str(ROOT)],
@@ -52,6 +60,7 @@ a = Analysis(
     datas=datas,
     hiddenimports=hiddenimports + [
         "pystray", "PIL", "PIL.ImageDraw", "truck_telemetry", "hid",
+        "serial", "serial.tools.list_ports",
     ],
     hookspath=[],
     runtime_hooks=[],

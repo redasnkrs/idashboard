@@ -4,6 +4,17 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.9.3] - 2026-11-09
+
+### Ajouté
+- Support des bandeaux **série USB CDC** en plus du HID, avec détection
+  automatique des ports `VID 1A86`.
+- Diagnostic dans `/settings` : nombre de périphériques HID/série détectés et
+  message clair quand aucun bandeau n’est trouvé.
+
+### Corrigé
+- Plus d’erreur `NoneType` quand l’énumération HID ne renvoie rien.
+
 ## [0.9.2] - 2026-11-09
 
 ### Corrigé

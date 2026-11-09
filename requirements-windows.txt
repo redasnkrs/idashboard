@@ -2,3 +2,4 @@
 acevo-sdk
 truck-telemetry
 hidapi
+pyserial

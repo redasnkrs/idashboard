@@ -21,6 +21,14 @@ try:
 except Exception:  # pragma: no cover - depend de la machine
     hid = None
     HID_AVAILABLE = False
+try:
+    import serial
+    from serial.tools import list_ports
+    SERIAL_AVAILABLE = True
+except Exception:  # pragma: no cover - depend de la machine
+    serial = None
+    list_ports = None
+    SERIAL_AVAILABLE = False
 
 VID = 0x1A86
 PID = 0xFE07
@@ -34,6 +42,9 @@ _lock = threading.Lock()
 _thread = None
 _stop = threading.Event()
 _device = None
+_serial = None
+_transport = ""
+_port = ""
 _count = 0
 _error = ""
 _test = None
@@ -78,13 +89,17 @@ def _chunks(packet):
 
 
 def _write(packet):
-    if _device is None:
+    if _device is None and _serial is None:
         return False
     for i, chunk in enumerate(_chunks(packet)):
         if i:
             time.sleep(0.001)
         try:
-            _device.write([0x00] + list(chunk))
+            if _serial is not None:
+                _serial.write(chunk)
+                _serial.flush()
+            else:
+                _device.write([0x00] + list(chunk))
         except Exception as exc:
             global _error
             _error = str(exc)
@@ -94,24 +109,35 @@ def _write(packet):
 
 
 def _close():
-    global _device
+    global _device, _serial, _transport, _port
     if _device is not None:
         try:
             _device.close()
         except Exception:
             pass
+    if _serial is not None:
+        try:
+            _serial.close()
+        except Exception:
+            pass
     _device = None
+    _serial = None
+    _transport = ""
+    _port = ""
 
 
 def _read_info():
     global _count, _error
-    if _device is None:
+    if _device is None and _serial is None:
         return
     if not _write(_rb(ACTION_READ_INFO)):
         return
     time.sleep(0.2)
     try:
-        data = _device.read(256, 500)
+        if _serial is not None:
+            data = list(_serial.read(256))
+        else:
+            data = _device.read(256, 500)
     except Exception:
         data = []
     if data and len(data) > 20 and data[20] > 0:
@@ -120,31 +146,75 @@ def _read_info():
     _error = ""
 
 
-def _connect():
-    global _device, _error, _count
-    if not HID_AVAILABLE:
-        _error = "hidapi absent"
-        return False
+def _hid_candidates():
     try:
-        candidates = hid.enumerate(VID, PID)
+        found = hid.enumerate(VID, PID)
     except Exception as exc:
-        _error = str(exc)
-        return False
-    for info in candidates:
-        if info.get("interface_number", 0) != 0:
-            continue
+        global _error
+        _error = "HID: " + str(exc)
+        found = []
+    if not found:
         try:
-            device = hid.device()
-            device.open_path(info["path"])
-            device.set_nonblocking(1)
-            _device = device
-            _error = ""
-            _count = 0
-            _read_info()
-            return True
-        except Exception as exc:
-            _error = str(exc)
-            continue
+            found = [d for d in (hid.enumerate() or [])
+                     if d.get("vendor_id") == VID]
+        except Exception:
+            found = []
+    return found or []
+
+
+def _serial_candidates():
+    if not SERIAL_AVAILABLE:
+        return []
+    try:
+        ports = list(list_ports.comports())
+    except Exception:
+        return []
+    found = []
+    for port in ports:
+        vid = getattr(port, "vid", None)
+        desc = ((getattr(port, "description", "") or "") + " " +
+                (getattr(port, "product", "") or ""))
+        if vid == VID or "robobloq" in desc.lower() or "dx light" in desc.lower():
+            found.append(port.device)
+    return found
+
+
+def _connect():
+    global _device, _serial, _transport, _port, _error, _count
+    _error = ""
+    if HID_AVAILABLE:
+        for info in _hid_candidates():
+            try:
+                if info.get("interface_number", 0) not in (0, None):
+                    continue
+                device = hid.device()
+                device.open_path(info["path"])
+                device.set_nonblocking(1)
+                _device = device
+                _transport = "hid"
+                _port = str(info.get("path", ""))
+                _count = 0
+                _read_info()
+                return True
+            except Exception as exc:
+                _error = "HID: " + str(exc)
+                _close()
+    if SERIAL_AVAILABLE:
+        for port in _serial_candidates():
+            try:
+                ser = serial.Serial(port, 115200, timeout=0.2,
+                                    write_timeout=0.5)
+                _serial = ser
+                _transport = "serial"
+                _port = port
+                _count = 0
+                _read_info()
+                return True
+            except Exception as exc:
+                _error = "Série " + port + ": " + str(exc)
+                _close()
+    if not _error:
+        _error = "Bandeau introuvable (USB HID ou port série)"
     return False
 
 
@@ -310,11 +380,30 @@ def test(kind="left", seconds=3.0):
 
 
 def status():
+    hid_list = []
+    if HID_AVAILABLE:
+        try:
+            for d in (hid.enumerate() or []):
+                if d.get("vendor_id") == VID:
+                    hid_list.append({
+                        "vendor_id": d.get("vendor_id"),
+                        "product_id": d.get("product_id"),
+                        "interface": d.get("interface_number"),
+                        "product": d.get("product_string"),
+                    })
+        except Exception:
+            pass
     return {
-        "available": HID_AVAILABLE,
-        "connected": _device is not None,
+        "available": HID_AVAILABLE or SERIAL_AVAILABLE,
+        "hid": HID_AVAILABLE,
+        "serial": SERIAL_AVAILABLE,
+        "connected": _device is not None or _serial is not None,
+        "transport": _transport,
+        "port": _port,
         "led_count": _count,
         "error": _error,
+        "hid_devices": hid_list,
+        "serial_ports": _serial_candidates(),
         "config": app_settings.ambient(),
         "dash": _last_dash,
     }

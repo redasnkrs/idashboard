@@ -757,7 +757,13 @@ html { touch-action: manipulation; }
       $('ambientStatus').textContent = !info.available ? 'Windows + hidapi requis' :
         info.connected ? 'Connecté' + (info.led_count ? ' (' + info.led_count + ' LED)' : '') :
         cfg.enabled ? 'En attente du bandeau' : 'Désactivé';
-      $('ambientProgress').textContent = info.error || '';
+      const hids = (info.hid_devices || []).length;
+      const ports = (info.serial_ports || []).length;
+      $('ambientProgress').textContent = info.error ||
+        (!info.connected && cfg.enabled
+          ? 'Aucun bandeau détecté (HID: ' + hids + ', série: ' + ports + '). ' +
+            'Ferme DX Light et rebranche l’USB.'
+          : '');
       if (cfg.enabled) {
         clearTimeout(ambientTimer);
         ambientTimer = setTimeout(loadAmbient, 2000);
