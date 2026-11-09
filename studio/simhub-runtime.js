@@ -356,7 +356,7 @@
     }
 
     function autoZoom(speed) {
-      return speed > 100 ? 6 : 7;
+      return speed > 100 ? 7 : 8;
     }
 
     function viewCenter(t, z, speed) {
@@ -387,7 +387,10 @@
       const t = mapInfo.tile;
       const speed = Math.abs(Number(state.v) || 0);
       let z = userZoom == null ? autoZoom(speed) : userZoom;
-      z = Math.max(t.minZoom || 0, Math.min(t.maxZoom || 8, z));
+      z = Math.max(t.minZoom || 0, Math.min((t.maxZoom || 8) + 2, z));
+      const baseZ = Math.min(z, t.maxZoom || 8);
+      const tileScale = Math.pow(2, z - baseZ);
+      const tilePx = 256 * tileScale;
       const span = 256 * Math.pow(2, z);
       const worldW = (t.x2 - t.x1) || 1;
       const worldH = (t.y2 - t.y1) || 1;
@@ -400,14 +403,16 @@
       const py = (viewY - t.y1) / worldH * span;
       const left = px - W / 2;
       const top = py - H / 2;
-      const x0 = Math.floor(left / 256), x1 = Math.floor((left + W) / 256);
-      const y0 = Math.floor(top / 256), y1 = Math.floor((top + H) / 256);
-      const max = Math.pow(2, z);
+      const x0 = Math.floor(left / tilePx);
+      const x1 = Math.floor((left + W) / tilePx);
+      const y0 = Math.floor(top / tilePx);
+      const y1 = Math.floor((top + H) / tilePx);
+      const max = Math.pow(2, baseZ);
       for (let x = x0; x <= x1; x++) {
         if (x < 0 || x >= max) continue;
         for (let y = y0; y <= y1; y++) {
           if (y < 0 || y >= max) continue;
-          const key = z + "/" + x + "/" + y;
+          const key = baseZ + "/" + x + "/" + y;
           let img = etsTiles.get(key);
           if (!img) {
             img = new Image();
@@ -417,7 +422,8 @@
             etsTiles.set(key, img);
           }
           if (img && img.complete && img.naturalWidth) {
-            ctx.drawImage(img, x * 256 - left, y * 256 - top, 256, 256);
+            ctx.drawImage(img, x * tilePx - left, y * tilePx - top,
+              tilePx, tilePx);
           }
         }
       }
@@ -467,7 +473,7 @@
       const speed = Math.abs(Number(state.v) || 0);
       const base = userZoom == null ? autoZoom(speed) : userZoom;
       const next = Math.max(t.minZoom || 0,
-        Math.min(t.maxZoom || 8, base + delta));
+        Math.min((t.maxZoom || 8) + 2, base + delta));
       if (next !== base) {
         userZoom = next;
         schedule();
@@ -511,7 +517,7 @@
           a.clientY - b.clientY);
         if (pinch.dist > 0) {
           const z = Math.max(mapInfo.tile.minZoom || 0,
-            Math.min(mapInfo.tile.maxZoom || 8,
+            Math.min((mapInfo.tile.maxZoom || 8) + 2,
               Math.round(pinch.zoom + Math.log2(dist / pinch.dist))));
           if (z !== userZoom) {
             userZoom = z;

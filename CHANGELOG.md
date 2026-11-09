@@ -4,6 +4,13 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.7.8] - 2026-11-09
+
+### Modifié
+- Carte ETS2 : zoom par défaut plus proche (niveau 8).
+- Zoom tactile jusqu’à 2 niveaux au-delà des tuiles natives (niveaux 9 et 10)
+  par agrandissement des tuiles, pour voir les routes de près.
+
 ## [0.7.7] - 2026-11-09
 
 ### Ajouté
