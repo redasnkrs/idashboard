@@ -204,6 +204,7 @@ _AMBIENT_DEFAULTS = {
     "rpm": True,
     "flags": True,
     "brake": False,
+    "turns": True,
     "fps": 20,
 }
 
@@ -237,7 +238,7 @@ def ambient():
         pass
     out["turn_color"] = _hex_color(raw.get("turn_color"), out["turn_color"])
     out["idle_color"] = _hex_color(raw.get("idle_color"), out["idle_color"])
-    for key in ("rpm", "flags", "brake"):
+    for key in ("rpm", "flags", "brake", "turns"):
         if key in raw:
             out[key] = bool(raw.get(key))
     try:
@@ -277,7 +278,7 @@ def ambient_from(raw):
         pass
     out["turn_color"] = _hex_color(raw.get("turn_color"), out["turn_color"])
     out["idle_color"] = _hex_color(raw.get("idle_color"), out["idle_color"])
-    for key in ("rpm", "flags", "brake"):
+    for key in ("rpm", "flags", "brake", "turns"):
         if key in raw:
             out[key] = bool(raw.get(key))
     try:

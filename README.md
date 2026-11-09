@@ -190,6 +190,9 @@ Dans `/settings` → **Jeux** → **Ambient lights** :
 - **Frein** : bandeau rouge quand le frein est fort.
 - **Tests** : gauche, droite, régime, drapeau.
 
+Chaque effet a sa case : tu peux garder seulement les clignotants, seulement
+le régime, etc.
+
 Les clignotants viennent de `L/R/haz` (ETS2, AC Evo), les drapeaux de `flag`
 (AC 2014, AMS2, AC Evo). AC 2014 n’expose pas les clignotants.
 

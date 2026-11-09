@@ -242,6 +242,7 @@ html { touch-action: manipulation; }
         <label class="field"><span>FPS</span><input id="ambientFps" type="number" min="5" max="30" step="1"></label>
       </div>
       <div class="actions" style="margin-top:10px;gap:14px;flex-wrap:wrap">
+        <label class="checks"><input type="checkbox" id="ambientTurns"> Clignotants</label>
         <label class="checks"><input type="checkbox" id="ambientRpm"> Régime</label>
         <label class="checks"><input type="checkbox" id="ambientFlags"> Drapeaux</label>
         <label class="checks"><input type="checkbox" id="ambientBrake"> Frein</label>
@@ -731,6 +732,7 @@ html { touch-action: manipulation; }
       split: Number($('ambientSplit').value || 50) / 100,
       brightness: Number($('ambientBrightness').value || 100) / 100,
       fps: Number($('ambientFps').value || 20),
+      turns: $('ambientTurns').checked,
       rpm: $('ambientRpm').checked,
       flags: $('ambientFlags').checked,
       brake: $('ambientBrake').checked,
@@ -747,6 +749,7 @@ html { touch-action: manipulation; }
       if (document.activeElement !== $('ambientBrightness')) $('ambientBrightness').value = Math.round((cfg.brightness ?? 1) * 100);
       if (document.activeElement !== $('ambientFps')) $('ambientFps').value = cfg.fps ?? 20;
       $('ambientEnabled').checked = !!cfg.enabled;
+      $('ambientTurns').checked = cfg.turns !== false;
       $('ambientRpm').checked = cfg.rpm !== false;
       $('ambientFlags').checked = cfg.flags !== false;
       $('ambientBrake').checked = !!cfg.brake;
@@ -1162,7 +1165,7 @@ html { touch-action: manipulation; }
     $('ets2MapBtn').addEventListener('click', installMap);
     $('genBtn').addEventListener('click', startGen);
     for (const id of ['ambientEnabled', 'ambientCount', 'ambientSplit',
-      'ambientBrightness', 'ambientFps', 'ambientRpm', 'ambientFlags',
+      'ambientBrightness', 'ambientFps', 'ambientTurns', 'ambientRpm', 'ambientFlags',
       'ambientBrake', 'ambientSwap']) {
       $(id).addEventListener('change', saveAmbient);
     }

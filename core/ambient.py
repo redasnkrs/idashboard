@@ -211,7 +211,7 @@ def _render(dash, cfg, count):
     right = bool(dash.get("R")) or bool(dash.get("haz"))
     if cfg.get("swap"):
         left, right = right, left
-    if flash and (left or right):
+    if cfg.get("turns", True) and flash and (left or right):
         split = int(round(count * cfg.get("split", 0.5)))
         amber = _scale(_color(cfg.get("turn_color"), (255, 122, 0)),
                        cfg["brightness"])

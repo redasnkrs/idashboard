@@ -4,6 +4,16 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.9.1] - 2026-11-09
+
+### Ajouté
+- Case **Clignotants** dans les réglages ambient : on peut désactiver les
+  clignotants tout en gardant le régime, les drapeaux ou le frein.
+
+### Modifié
+- Les effets ambient sont maintenant activables indépendamment :
+  clignotants, régime, drapeaux, frein.
+
 ## [0.9.0] - 2026-11-09
 
 ### Ajouté
