@@ -3,6 +3,8 @@
 Tableau de bord de voiture sur mini écran 7" (1024x600), alimenté par la
 télémétrie d'Assetto Corsa Evo, d'Assetto Corsa 2014 ou d'Automobilista 2.
 Voir `Mini Deck App Roadmap.md` pour le projet complet et les phases.
+Les notes de version sont dans [`CHANGELOG.md`](CHANGELOG.md) et sont publiées
+automatiquement sur GitHub Releases.
 
 ## Installation (PC Windows)
 

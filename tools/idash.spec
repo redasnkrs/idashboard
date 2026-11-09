@@ -16,6 +16,7 @@ datas = [
     (str(ROOT / "core" / "media_smtc.ps1"), "core"),
     (str(ROOT / "VERSION"), "."),
     (str(ROOT / "README.md"), "."),
+    (str(ROOT / "CHANGELOG.md"), "."),
     (str(ROOT / "requirements.txt"), "."),
     (str(ROOT / "requirements-windows.txt"), "."),
 ]

@@ -14,8 +14,9 @@ import time
 from pathlib import Path
 
 CODE_FILES = ["main.py", "acevo_bridge.py", "lancer.bat", "README.md",
-              "Mini Deck App Roadmap.md", "VERSION", "requirements.txt",
-              "requirements-windows.txt", "requirements-build.txt"]
+              "Mini Deck App Roadmap.md", "CHANGELOG.md", "VERSION",
+              "requirements.txt", "requirements-windows.txt",
+              "requirements-build.txt"]
 CODE_DIRS = ["core", "adapters", "assets", "dashboards", "home", "settings",
              "studio", "tools"]
 PROTECTED = {"custom", "logs", ".update", ".profile-7", "app.json",

@@ -5,8 +5,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
 FILES = ["main.py", "acevo_bridge.py", "lancer.bat", "README.md",
-         "Mini Deck App Roadmap.md", "VERSION", "requirements.txt",
-         "requirements-windows.txt", "requirements-build.txt"]
+         "Mini Deck App Roadmap.md", "CHANGELOG.md", "VERSION",
+         "requirements.txt", "requirements-windows.txt",
+         "requirements-build.txt"]
 DIRS = ["core", "adapters", "assets", "dashboards", "home", "settings",
         "studio", "tools", "update"]
 SKIP = {"__pycache__", ".DS_Store", "screenshots"}

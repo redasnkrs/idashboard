@@ -46,13 +46,16 @@ jobs:
         run: python tools/build_release.py
       - name: Build Windows app
         run: python tools/build_windows.py
+      - name: Prepare release notes
+        run: python tools/release_notes.py --output release-notes.md
       - name: Create or update release
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.md
             gh release upload "$GITHUB_REF_NAME" dist/*.zip --clobber
           else
-            gh release create "$GITHUB_REF_NAME" dist/*.zip --generate-notes
+            gh release create "$GITHUB_REF_NAME" dist/*.zip               --title "$GITHUB_REF_NAME" --notes-file release-notes.md
           fi
