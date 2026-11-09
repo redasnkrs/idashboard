@@ -759,9 +759,12 @@ html { touch-action: manipulation; }
         cfg.enabled ? 'En attente du bandeau' : 'Désactivé';
       const hids = (info.hid_devices || []).length;
       const ports = (info.serial_ports || []).length;
+      const names = (info.hid_devices || []).map(d =>
+        (d.product || 'HID') + ' (if ' + (d.interface ?? '?') + ')').join(' | ');
       $('ambientProgress').textContent = info.error ||
         (!info.connected && cfg.enabled
-          ? 'Aucun bandeau détecté (HID: ' + hids + ', série: ' + ports + '). ' +
+          ? 'Aucun bandeau détecté (HID: ' + hids +
+            (names ? ' [' + names + ']' : '') + ', série: ' + ports + '). ' +
             'Ferme DX Light et rebranche l’USB.'
           : '');
       if (cfg.enabled) {

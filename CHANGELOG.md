@@ -4,6 +4,15 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.9.4] - 2026-11-09
+
+### Corrigé
+- Détection HID : idash essaie maintenant toutes les interfaces du bandeau
+  (plus seulement l’interface 0) et privilégie les périphériques
+  « light / Robobloq / DX ».
+- Message d’erreur plus précis quand un périphérique HID est trouvé mais ne
+  peut pas être ouvert.
+
 ## [0.9.3] - 2026-11-09
 
 ### Ajouté

@@ -182,11 +182,16 @@ def _serial_candidates():
 def _connect():
     global _device, _serial, _transport, _port, _error, _count
     _error = ""
+    last = ""
     if HID_AVAILABLE:
-        for info in _hid_candidates():
+        candidates = _hid_candidates()
+        preferred = [d for d in candidates
+                     if d.get("product_id") == PID or
+                     any(word in (d.get("product_string") or "").lower()
+                         for word in ("light", "robobloq", "dx"))]
+        ordered = preferred + [d for d in candidates if d not in preferred]
+        for info in ordered:
             try:
-                if info.get("interface_number", 0) not in (0, None):
-                    continue
                 device = hid.device()
                 device.open_path(info["path"])
                 device.set_nonblocking(1)
@@ -195,9 +200,10 @@ def _connect():
                 _port = str(info.get("path", ""))
                 _count = 0
                 _read_info()
-                return True
+                if _device is not None:
+                    return True
             except Exception as exc:
-                _error = "HID: " + str(exc)
+                last = "HID: " + str(exc)
                 _close()
     if SERIAL_AVAILABLE:
         for port in _serial_candidates():
@@ -209,11 +215,18 @@ def _connect():
                 _port = port
                 _count = 0
                 _read_info()
-                return True
+                if _serial is not None:
+                    return True
             except Exception as exc:
-                _error = "Série " + port + ": " + str(exc)
+                last = "Série " + port + ": " + str(exc)
                 _close()
-    if not _error:
+    if last:
+        _error = last
+    elif HID_AVAILABLE and _hid_candidates():
+        _error = "Bandeau HID trouvé mais ouverture impossible"
+    elif _serial_candidates():
+        _error = "Port série trouvé mais ouverture impossible"
+    else:
         _error = "Bandeau introuvable (USB HID ou port série)"
     return False
 
