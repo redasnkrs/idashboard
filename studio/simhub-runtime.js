@@ -337,19 +337,39 @@
     const canvas = document.createElementNS(XHTML, "canvas");
     canvas.width = Math.max(1, Math.round(item.width));
     canvas.height = Math.max(1, Math.round(item.height));
-    canvas.setAttribute("style", "width:100%;height:100%;display:block");
+    canvas.setAttribute("style", "width:100%;height:100%;display:block;" +
+      "touch-action:none;cursor:grab");
     box.appendChild(canvas);
     fo.appendChild(box);
     const ctx = canvas.getContext("2d");
     const W = canvas.width, H = canvas.height;
     let mapInfo = null, state = {}, lastKey = "", timer = 0;
+    let follow = true, userZoom = null, viewX = null, viewY = null;
+    let drag = null, pinch = null, lastTap = 0;
 
     function schedule() {
       if (timer) return;
       timer = setTimeout(() => {
         timer = 0;
         draw();
-      }, 60);
+      }, 50);
+    }
+
+    function autoZoom(speed) {
+      return speed > 100 ? 6 : 7;
+    }
+
+    function viewCenter(t, z, speed) {
+      const span = 256 * Math.pow(2, z);
+      let mx = state.map_x == null ? (t.x1 + t.x2) / 2 : Number(state.map_x);
+      let my = state.map_y == null ? (t.y1 + t.y2) / 2 : Number(state.map_y);
+      if (!isFinite(mx) || !isFinite(my) ||
+          mx < t.x1 || mx > t.x2 || my < t.y1 || my > t.y2) {
+        mx = (t.x1 + t.x2) / 2;
+        my = (t.y1 + t.y2) / 2;
+        return { x: mx, y: my, truck: false };
+      }
+      return { x: mx, y: my, truck: state.map_x != null };
     }
 
     function draw() {
@@ -366,21 +386,18 @@
       }
       const t = mapInfo.tile;
       const speed = Math.abs(Number(state.v) || 0);
-      let z = speed > 110 ? 5 : 6;
+      let z = userZoom == null ? autoZoom(speed) : userZoom;
       z = Math.max(t.minZoom || 0, Math.min(t.maxZoom || 8, z));
       const span = 256 * Math.pow(2, z);
       const worldW = (t.x2 - t.x1) || 1;
       const worldH = (t.y2 - t.y1) || 1;
-      let mx = state.map_x == null ? (t.x1 + t.x2) / 2 : Number(state.map_x);
-      let my = state.map_y == null ? (t.y1 + t.y2) / 2 : Number(state.map_y);
-      if (!isFinite(mx) || !isFinite(my) ||
-          mx < t.x1 || mx > t.x2 || my < t.y1 || my > t.y2) {
-        mx = (t.x1 + t.x2) / 2;
-        my = (t.y1 + t.y2) / 2;
-        state = Object.assign({}, state, { map_x: null, map_y: null });
+      const center = viewCenter(t, z, speed);
+      if (follow || viewX == null || viewY == null) {
+        viewX = center.x;
+        viewY = center.y;
       }
-      const px = (mx - t.x1) / worldW * span;
-      const py = (my - t.y1) / worldH * span;
+      const px = (viewX - t.x1) / worldW * span;
+      const py = (viewY - t.y1) / worldH * span;
       const left = px - W / 2;
       const top = py - H / 2;
       const x0 = Math.floor(left / 256), x1 = Math.floor((left + W) / 256);
@@ -404,22 +421,26 @@
           }
         }
       }
-      if (state.map_x != null && state.map_y != null) {
-        ctx.save();
-        ctx.translate(W / 2, H / 2);
-        ctx.rotate((Number(state.map_heading) || 0) * Math.PI / 180);
-        ctx.beginPath();
-        ctx.moveTo(0, -12);
-        ctx.lineTo(8, 10);
-        ctx.lineTo(0, 6);
-        ctx.lineTo(-8, 10);
-        ctx.closePath();
-        ctx.fillStyle = "#ff5a2a";
-        ctx.fill();
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.restore();
+      if (center.truck) {
+        const tx = (Number(state.map_x) - t.x1) / worldW * span - left;
+        const ty = (Number(state.map_y) - t.y1) / worldH * span - top;
+        if (tx >= -20 && tx <= W + 20 && ty >= -20 && ty <= H + 20) {
+          ctx.save();
+          ctx.translate(tx, ty);
+          ctx.rotate((Number(state.map_heading) || 0) * Math.PI / 180);
+          ctx.beginPath();
+          ctx.moveTo(0, -12);
+          ctx.lineTo(8, 10);
+          ctx.lineTo(0, 6);
+          ctx.lineTo(-8, 10);
+          ctx.closePath();
+          ctx.fillStyle = "#ff5a2a";
+          ctx.fill();
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+        }
       }
     }
 
@@ -429,6 +450,115 @@
         Math.round((state.v || 0) / 10)].join("|");
       if (key !== lastKey) { lastKey = key; schedule(); }
     }
+
+    function worldPerPixel(z) {
+      if (!mapInfo || !mapInfo.tile) return 1;
+      const t = mapInfo.tile;
+      const span = 256 * Math.pow(2, z);
+      return {
+        x: (t.x2 - t.x1) / span,
+        y: (t.y2 - t.y1) / span,
+      };
+    }
+
+    function zoomBy(delta) {
+      if (!mapInfo || !mapInfo.tile) return;
+      const t = mapInfo.tile;
+      const speed = Math.abs(Number(state.v) || 0);
+      const base = userZoom == null ? autoZoom(speed) : userZoom;
+      const next = Math.max(t.minZoom || 0,
+        Math.min(t.maxZoom || 8, base + delta));
+      if (next !== base) {
+        userZoom = next;
+        schedule();
+      }
+    }
+
+    canvas.addEventListener("touchstart", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.touches.length === 2) {
+        const a = e.touches[0], b = e.touches[1];
+        pinch = {
+          dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+          zoom: userZoom == null ? autoZoom(Math.abs(Number(state.v) || 0))
+            : userZoom,
+        };
+        drag = null;
+      } else if (e.touches.length === 1) {
+        drag = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        if (follow) {
+          const t = mapInfo && mapInfo.tile;
+          if (t) {
+            const speed = Math.abs(Number(state.v) || 0);
+            const z = userZoom == null ? autoZoom(speed) : userZoom;
+            const center = viewCenter(t, z, speed);
+            viewX = center.x;
+            viewY = center.y;
+          }
+        }
+        follow = false;
+      }
+    }, { passive: false });
+
+    canvas.addEventListener("touchmove", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!mapInfo || !mapInfo.tile) return;
+      if (e.touches.length === 2 && pinch) {
+        const a = e.touches[0], b = e.touches[1];
+        const dist = Math.hypot(a.clientX - b.clientX,
+          a.clientY - b.clientY);
+        if (pinch.dist > 0) {
+          const z = Math.max(mapInfo.tile.minZoom || 0,
+            Math.min(mapInfo.tile.maxZoom || 8,
+              Math.round(pinch.zoom + Math.log2(dist / pinch.dist))));
+          if (z !== userZoom) {
+            userZoom = z;
+            schedule();
+          }
+        }
+      } else if (e.touches.length === 1 && drag) {
+        const touch = e.touches[0];
+        const dx = touch.clientX - drag.x;
+        const dy = touch.clientY - drag.y;
+        const z = userZoom == null
+          ? autoZoom(Math.abs(Number(state.v) || 0)) : userZoom;
+        const per = worldPerPixel(z);
+        viewX -= dx * per.x;
+        viewY -= dy * per.y;
+        drag = { x: touch.clientX, y: touch.clientY };
+        follow = false;
+        schedule();
+      }
+    }, { passive: false });
+
+    canvas.addEventListener("touchend", e => {
+      e.stopPropagation();
+      if (e.touches.length === 0) {
+        pinch = null;
+        drag = null;
+        const now = performance.now();
+        if (now - lastTap < 320) {
+          follow = true;
+          userZoom = null;
+          schedule();
+          lastTap = 0;
+        } else {
+          lastTap = now;
+        }
+      }
+    }, { passive: false });
+
+    canvas.addEventListener("touchcancel", () => {
+      pinch = null;
+      drag = null;
+    }, { passive: true });
+
+    canvas.addEventListener("wheel", e => {
+      e.preventDefault();
+      zoomBy(e.deltaY < 0 ? 1 : -1);
+    }, { passive: false });
 
     loadETSMapInfo().then(info => {
       mapInfo = info;

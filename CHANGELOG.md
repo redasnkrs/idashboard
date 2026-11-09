@@ -4,6 +4,14 @@ Toutes les versions notables d'idash. Le format s'inspire de Keep a Changelog.
 La section correspondant à `VERSION` est utilisée automatiquement comme notes
 de release GitHub.
 
+## [0.7.7] - 2026-11-09
+
+### Ajouté
+- Carte ETS2 tactile : zoom par pincement, déplacement au doigt et
+  recentrage par double-tap.
+- Zoom molette sur ordinateur.
+- Zoom par défaut plus proche du camion (niveau 7).
+
 ## [0.7.6] - 2026-11-09
 
 ### Corrigé
